@@ -82,7 +82,9 @@ vec2 update(vec2 pos) {
     // lookup wind mask in b channel
     float b = texture2D(u_wind_middle_center, wind_tex_pos).b;
     // check if mask is > 0.5
-    bool mask = b  > 0.1;
+    // If it is we relocate this particle
+    // TODO: consider using this as a probability
+    bool mask = b  > 0.5;
 
 
     vec2 offset = vec2(velocity.x , -velocity.y) * 0.0001 * u_speed_factor;
@@ -98,10 +100,10 @@ vec2 update(vec2 pos) {
 
     if (mask) {
       drop_rate = 1.0;
-    } 
-    
+    }
+
     float drop = step(1.0 - drop_rate, rand(seed));
-    
+
 
     vec2 random_pos = vec2(
         0.5 * rand(seed + 1.3) + 0.25,
@@ -163,9 +165,10 @@ export void particleDrawFragment() {
 
     // lookup wind mask in b channel
     float b = texture2D(u_wind_middle_center, wind_tex_pos).b;
-    // check if mask is > 0.5
+    // the mask can be used as  a  probability  to  relocate particles
+    // It  will also be used to hide particles (make them transparent)
     bool mask = b  > 0.1;
-    
+
     // // color ramp is encoded in a 16x16 texture
     vec2 ramp_pos = vec2(
         fract(16.0 * speed_t),
@@ -173,8 +176,7 @@ export void particleDrawFragment() {
 
     vec4 color = texture2D(u_color_ramp, ramp_pos);
     // multiplication factor for color (value as function of  speed)
-    // TODO: replace by colorramp
-    
+    // TODO: check this implementation
     float factor = clamp(speed_t * 16.0, 0.0, 1.0);
     color  = color * factor * float(!mask);
     gl_FragColor = color;
