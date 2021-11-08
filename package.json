@@ -1,5 +1,5 @@
 {
-  "name": "@openearth/windgl",
+  "name": "@lunaseasolutions/windgl",
   "version": "0.1.2",
   "description": "A MapboxGL plugin for animated flomap data visualization (based on  @astrosat/windgl)",
   "main": "dist/windgl.cjs.js",
