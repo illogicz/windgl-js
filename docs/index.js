@@ -1,10 +1,10 @@
 (function () {
 	'use strict';
 
-	var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 	function unwrapExports (x) {
-		return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x.default : x;
+		return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
 	}
 
 	function createCommonjsModule(fn, module) {
@@ -58,7 +58,7 @@
 	return mapboxgl;
 
 	}));
-
+	//# sourceMappingURL=mapbox-gl.js.map
 	});
 
 	function createShader(gl, type, source) {
@@ -14003,7 +14003,7 @@
 	  Object.defineProperty(exports, '__esModule', { value: true });
 
 	}));
-
+	//# sourceMappingURL=index.js.map
 	});
 
 	unwrapExports(styleSpec);
@@ -14469,9 +14469,9 @@
 	          default: "white",
 	          expression: {
 	            interpolated: true,
-	            parameters: ["zoom", "feature"]
+	            parameters: ["zoom", "feature"],
 	          },
-	          "property-type": "data-driven"
+	          "property-type": "data-driven",
 	        },
 	        "particle-speed": {
 	          type: "number",
@@ -14480,10 +14480,10 @@
 	          transition: true,
 	          expression: {
 	            interpolated: true,
-	            parameters: ["zoom"]
+	            parameters: ["zoom"],
 	          },
-	          "property-type": "data-constant"
-	        }
+	          "property-type": "data-constant",
+	        },
 	      },
 	      options
 	    );
@@ -14504,7 +14504,7 @@
 	  Particles.prototype.visibleParticleTiles = function visibleParticleTiles () {
 	    return this.computeVisibleTiles(2, this.tileSize, {
 	      minzoom: 0,
-	      maxzoom: this.windData.maxzoom + 3 // how much overzoom to allow?
+	      maxzoom: this.windData.maxzoom + 3, // how much overzoom to allow?
 	    });
 	  };
 
@@ -14591,7 +14591,7 @@
 	    );
 
 	    this.nullTile = {
-	      getTexture: function () { return this$1.nullTexture; }
+	      getTexture: function () { return this$1.nullTexture; },
 	    };
 	  };
 
@@ -14625,7 +14625,6 @@
 	    var add = function (tile) { return (result[tile] = tile); };
 	    this.visibleParticleTiles().forEach(function (tileID) {
 	      var t = tileID;
-	      // let matrix = new DOMMatrix();
 	      var matrix = new window.DOMMatrix();
 	      while (!t.isRoot()) {
 	        if (t.z <= this$1.windData.maxzoom) { break; }
@@ -14662,7 +14661,6 @@
 	  Particles.prototype.findAssociatedDataTiles = function findAssociatedDataTiles (tileID) {
 	    var t = tileID;
 	    var found;
-	    // let matrix = new DOMMatrix();
 	    var matrix = new window.DOMMatrix();
 	    while (!t.isRoot()) {
 	      if ((found = this._tiles[t])) { break; }
@@ -14712,7 +14710,7 @@
 	      tileMiddleRight: tileMiddleRight || this.nullTile,
 	      tileBottomLeft: tileBottomLeft || this.nullTile,
 	      tileBottomCenter: tileBottomCenter || this.nullTile,
-	      tileBottomRight: tileBottomRight || this.nullTile
+	      tileBottomRight: tileBottomRight || this.nullTile,
 	    };
 	  };
 
@@ -14765,7 +14763,6 @@
 	    gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
 	    gl.drawArrays(gl.TRIANGLES, 0, 6);
-
 	    gl.flush();
 
 	    // swap the particle state textures so the new one becomes the current one
@@ -14838,7 +14835,6 @@
 	    gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
 	    gl.drawArrays(gl.POINTS, 0, this._numParticles);
-
 	    gl.flush();
 	  };
 
