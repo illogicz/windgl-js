@@ -16,7 +16,7 @@ import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
  *    are read from the texture and are projected into pseudo-mercator coordinates
  *    and their final position is computed based on the map viewport.
  */
-class Particles extends Layer {
+// class Particles extends Layer {
   constructor(options) {
     super(
       {
