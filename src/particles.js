@@ -16,7 +16,7 @@ import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
  *    are read from the texture and are projected into pseudo-mercator coordinates
  *    and their final position is computed based on the map viewport.
  */
-// class Particles extends Layer {
+class Particles extends Layer {
   constructor(options) {
     super(
       {
@@ -169,8 +169,7 @@ import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
     const add = tile => (result[tile] = tile);
     this.visibleParticleTiles().forEach(tileID => {
       let t = tileID;
-      // let matrix = new DOMMatrix();
-      let matrix = new window.DOMMatrix();
+      let matrix = new DOMMatrix();
       while (!t.isRoot()) {
         if (t.z <= this.windData.maxzoom) break;
         const [x, y] = t.quadrant();
@@ -204,8 +203,7 @@ import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
   findAssociatedDataTiles(tileID) {
     let t = tileID;
     let found;
-    // let matrix = new DOMMatrix();
-    let matrix = new window.DOMMatrix();
+    let matrix = new DOMMatrix();
     while (!t.isRoot()) {
       if ((found = this._tiles[t])) break;
       const [x, y] = t.quadrant();
@@ -306,8 +304,6 @@ import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    gl.flush();
-
     // swap the particle state textures so the new one becomes the current one
     const temp = tile.particleStateTexture0;
     tile.particleStateTexture0 = tile.particleStateTexture1;
@@ -376,8 +372,6 @@ import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.POINTS, 0, this._numParticles);
-
-    gl.flush();
   }
 }
 
