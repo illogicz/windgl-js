@@ -136,6 +136,7 @@ vec4 toRGBA (const vec2 pos) {
 }
 
 export void particleUpdateFragment() {
+    // lookup particle pixel color
     vec4 color = texture2D(u_particles, v_tex_pos);
     vec2 pos = fromRGBA(color); // decode particle position from pixel RGBA
 
@@ -164,13 +165,19 @@ export void particleDrawVertex() {
         floor(a_index / u_particles_res) / u_particles_res));
 
     // decode current particle position from the pixel's RGBA value
-    vec2 relativeCoordsWGS84 = fromRGBA(color);
+    // vec2 relativeCoordsWGS84 = fromRGBA(color);
 
-    vec2 worldCoordsWGS84 = transform(relativeCoordsWGS84, u_offset);
-    vec2 worldCoordsMerc = wgs84ToMercator(worldCoordsWGS84);
+    // vec2 worldCoordsWGS84 = transform(relativeCoordsWGS84, u_offset);
+    // vec2 worldCoordsMerc = wgs84ToMercator(worldCoordsWGS84);
 
+    // v_particle_pos = relativeCoordsWGS84;
 
-    v_particle_pos = relativeCoordsWGS84;
+    // try defaulting to Mercator rather than wgs84
+    vec2 relativeCoordsMerc = fromRGBA(color);
+    vec2 worldCoordsMerc = transform(relativeCoordsMerc, u_offset);
+    // vec2 worldCoordsMerc = wgs84ToMercator(worldCoordsWGS84);
+
+    v_particle_pos = relativeCoordsMerc;
 
     gl_PointSize = 2.0;
     gl_Position = u_matrix * vec4(worldCoordsMerc, 0, 1);
