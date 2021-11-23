@@ -136,6 +136,7 @@ vec4 toRGBA (const vec2 pos) {
 }
 
 export void particleUpdateFragment() {
+    // lookup particle pixel color
     vec4 color = texture2D(u_particles, v_tex_pos);
     vec2 pos = fromRGBA(color); // decode particle position from pixel RGBA
 
