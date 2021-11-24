@@ -44,7 +44,7 @@ class Particles extends Layer {
       options
     );
     this.pixelToGridRatio = 20;
-    this.tileSize = 1024;
+    this.tileSize = 1024; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
     this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
@@ -52,6 +52,29 @@ class Particles extends Layer {
     // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
     this._particleTiles = {};
   }
+
+  /* 
+
+  TODO:
+
+  Create textures to store past and present screen state for tails.
+  In webgl-wind: 
+
+ 
+    resize() {
+        const gl = this.gl;
+        const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+        // screen textures to hold the drawn screen for the previous and the current frame
+        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+        this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+    } 
+
+    Possibly more difficult though because of tiles...
+    May need to consider the 3x3 tiles manually treated below?
+
+    Consider some of the details in computeVisibleTiles?
+
+  */
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
@@ -142,6 +165,48 @@ class Particles extends Layer {
       getTexture: () => this.nullTexture
     };
   }
+
+  /*
+  
+  Need to build in screen-drawing textures for particle fade-out.
+  In webgl-wind:
+
+    drawScreen() {
+        const gl = this.gl;
+        // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+        util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+        this.drawParticles();
+
+        util.bindFramebuffer(gl, null);
+        // enable blending to support drawing on top of an existing background (e.g. a map)
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        this.drawTexture(this.screenTexture, 1.0);
+        gl.disable(gl.BLEND);
+
+        // save the current screen as the background for the next frame
+        const temp = this.backgroundTexture;
+        this.backgroundTexture = this.screenTexture;
+        this.screenTexture = temp;
+    }
+
+    drawTexture(texture, opacity) {
+        const gl = this.gl;
+        const program = this.screenProgram;
+        gl.useProgram(program.program);
+
+        util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+        util.bindTexture(gl, texture, 2);
+        gl.uniform1i(program.u_screen, 2);
+        gl.uniform1f(program.u_opacity, opacity);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+  
+  */
 
   // This is a callback from mapbox for rendering into a texture
   prerender(gl) {

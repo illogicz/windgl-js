@@ -14339,7 +14339,7 @@
 	  }
 	};
 
-	var sampleFill = function (gl) { return createProgram(gl, "precision mediump float;vec2 i(vec2 b){float a=-180.*b.y+90.;a=(180.-57.29578*log(tan(.785398+a*3.141593/360.)))/360.;return vec2(b.x,a);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform mat4 u_matrix,u_offset;attribute vec2 a_pos;varying vec2 g;void main(){vec2 b=f(a_pos,u_offset),a=i(b);g=a,gl_Position=u_matrix*vec4(a,0,1);}", "precision mediump float;vec2 j(vec2 a){float b=a.y;return vec2(a.x,b);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform vec2 u_wind_res,u_wind_min,u_wind_max;uniform float u_opacity;uniform sampler2D u_wind,u_color_ramp;uniform mat4 u_offset_inverse;varying vec2 g;vec2 d(const vec2 a){return texture2D(u_wind,a).rg;}vec2 k(const vec2 e){vec2 a=1./u_wind_res,b=floor(e*u_wind_res)*a,c=fract(e*u_wind_res),h=d(b),l=d(b+vec2(a.x,0)),m=d(b+vec2(0,a.y)),n=d(b+a);return mix(mix(h,l,c.x),mix(m,n,c.x),c.y);}vec2 o(const vec2 a){return mix(u_wind_min,u_wind_max,k(a));}float p(const vec2 a){return length(o(a))/length(u_wind_max);}void main(){vec2 b=j(g),c=f(b,u_offset_inverse);float a=p(c);vec2 e=vec2(fract(16.*a),floor(16.*a)/16.);vec4 h=texture2D(u_color_ramp,e);gl_FragColor=vec4(floor(255.*h*u_opacity)/255.);}"); };
+	var sampleFill = function (gl) { return createProgram(gl, "precision mediump float;vec2 i(vec2 b){float a=-180.*b.y+90.;a=(180.-57.29578*log(tan(.785398+a*3.141593/360.)))/360.;return vec2(b.x,a);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform mat4 u_matrix,u_offset;attribute vec2 a_pos;varying vec2 g;void main(){vec2 b=f(a_pos,u_offset),a=i(b);g=a,gl_Position=u_matrix*vec4(a,0,1);}", "precision mediump float;vec2 j(vec2 b){float a=radians(180.-b.y*360.);a=114.591559*atan(exp(a))-90.,a=a/-180.+.5;return vec2(b.x,a);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform vec2 u_wind_res,u_wind_min,u_wind_max;uniform float u_opacity;uniform sampler2D u_wind,u_color_ramp;uniform mat4 u_offset_inverse;varying vec2 g;vec2 d(const vec2 a){return texture2D(u_wind,a).rg;}vec2 k(const vec2 e){vec2 a=1./u_wind_res,b=floor(e*u_wind_res)*a,c=fract(e*u_wind_res),h=d(b),l=d(b+vec2(a.x,0)),m=d(b+vec2(0,a.y)),n=d(b+a);return mix(mix(h,l,c.x),mix(m,n,c.x),c.y);}vec2 o(const vec2 a){return mix(u_wind_min,u_wind_max,k(a));}float p(const vec2 a){return length(o(a))/length(u_wind_max);}void main(){vec2 b=j(g),c=f(b,u_offset_inverse);float a=p(c);vec2 e=vec2(fract(16.*a),floor(16.*a)/16.);vec4 h=texture2D(u_color_ramp,e);gl_FragColor=vec4(floor(255.*h*u_opacity)/255.);}"); };
 
 	var SampleFill = /*@__PURE__*/(function (Layer$$1) {
 	  function SampleFill(options) {
@@ -14488,7 +14488,7 @@
 	      options
 	    );
 	    this.pixelToGridRatio = 20;
-	    this.tileSize = 1024;
+	    this.tileSize = 1024; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
 	    this.dropRate = 0.003; // how often the particles move to a random place
 	    this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
@@ -14500,6 +14500,29 @@
 	  if ( Layer$$1 ) Particles.__proto__ = Layer$$1;
 	  Particles.prototype = Object.create( Layer$$1 && Layer$$1.prototype );
 	  Particles.prototype.constructor = Particles;
+
+	  /* 
+
+	  TODO:
+
+	  Create textures to store past and present screen state for tails.
+	  In webgl-wind: 
+
+	 
+	    resize() {
+	        const gl = this.gl;
+	        const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+	        // screen textures to hold the drawn screen for the previous and the current frame
+	        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+	        this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
+	    } 
+
+	    Possibly more difficult though because of tiles...
+	    May need to consider the 3x3 tiles manually treated below?
+
+	    Consider some of the details in computeVisibleTiles?
+
+	  */
 
 	  Particles.prototype.visibleParticleTiles = function visibleParticleTiles () {
 	    return this.computeVisibleTiles(2, this.tileSize, {
@@ -14594,6 +14617,48 @@
 	      getTexture: function () { return this$1.nullTexture; }
 	    };
 	  };
+
+	  /*
+	  
+	  Need to build in screen-drawing textures for particle fade-out.
+	  In webgl-wind:
+
+	    drawScreen() {
+	        const gl = this.gl;
+	        // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+	        util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
+	        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+	        this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+	        this.drawParticles();
+
+	        util.bindFramebuffer(gl, null);
+	        // enable blending to support drawing on top of an existing background (e.g. a map)
+	        gl.enable(gl.BLEND);
+	        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	        this.drawTexture(this.screenTexture, 1.0);
+	        gl.disable(gl.BLEND);
+
+	        // save the current screen as the background for the next frame
+	        const temp = this.backgroundTexture;
+	        this.backgroundTexture = this.screenTexture;
+	        this.screenTexture = temp;
+	    }
+
+	    drawTexture(texture, opacity) {
+	        const gl = this.gl;
+	        const program = this.screenProgram;
+	        gl.useProgram(program.program);
+
+	        util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+	        util.bindTexture(gl, texture, 2);
+	        gl.uniform1i(program.u_screen, 2);
+	        gl.uniform1f(program.u_opacity, opacity);
+
+	        gl.drawArrays(gl.TRIANGLES, 0, 6);
+	    }
+	  
+	  */
 
 	  // This is a callback from mapbox for rendering into a texture
 	  Particles.prototype.prerender = function prerender (gl) {
