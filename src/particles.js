@@ -1,7 +1,11 @@
 import * as util from "./util";
 import Layer from "./layer";
 
-import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
+import {
+  particleUpdate,
+  particleDraw,
+  screenDraw
+} from "./shaders/particles.glsl";
 
 /**
  * This layer simulates a particles system where the particles move according
@@ -49,6 +53,7 @@ class Particles extends Layer {
     this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
     this._numParticles = 65536;
+    this.fadeOpacity = 0.6; //0.996; // how fast the particle trails fade on each frame
     // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
     this._particleTiles = {};
   }
@@ -75,6 +80,28 @@ class Particles extends Layer {
     Consider some of the details in computeVisibleTiles?
 
   */
+
+  initializeScreenTextures() {
+    // textures to hold the screen state for the current and the last frame
+    const emptyPixels = new Uint8Array(
+      this.gl.canvas.width * this.gl.canvas.height * 4
+    );
+    this.backgroundTexture = util.createTexture(
+      this.gl,
+      this.gl.NEAREST,
+      emptyPixels,
+      this.gl.canvas.width,
+      this.gl.canvas.height
+    );
+    this.screenTexture = util.createTexture(
+      this.gl,
+      this.gl.NEAREST,
+      emptyPixels,
+      this.gl.canvas.width,
+      this.gl.canvas.height
+    );
+    // return { backgroundTexture, screenTexture };
+  }
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
@@ -108,6 +135,7 @@ class Particles extends Layer {
 
   move() {
     super.move();
+    this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles
     const tiles = this.visibleParticleTiles();
     Object.keys(this._particleTiles).forEach(tile => {
       if (tiles.filter(t => t.toString() == tile).length === 0) {
@@ -143,6 +171,8 @@ class Particles extends Layer {
   initialize(map, gl) {
     this.updateProgram = particleUpdate(gl);
     this.drawProgram = particleDraw(gl);
+    // NEW
+    this.screenProgram = screenDraw(gl);
 
     this.framebuffer = gl.createFramebuffer();
 
@@ -381,7 +411,16 @@ class Particles extends Layer {
         const found = this.findAssociatedDataTiles(tile);
         if (!found) return;
 
-        this.draw(
+        // this.draw(
+        //   gl,
+        //   matrix,
+        //   this._particleTiles[tile],
+        //   tile.viewMatrix(2),
+        //   found
+        // );
+
+        // draw() is now embedded in drawScreen()
+        this.drawScreen(
           gl,
           matrix,
           this._particleTiles[tile],
@@ -392,9 +431,48 @@ class Particles extends Layer {
     }
   }
 
+  // NEW: attempt to overlay past screen state (particle tails)
+  drawScreen(gl, matrix, tile, offset, data) {
+    // const gl = this.gl;
+
+    // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+    util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+    this.draw(gl, matrix, tile, offset, data);
+
+    util.bindFramebuffer(gl, null);
+    // enable blending to support drawing on top of an existing background (e.g. a map)
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    this.drawTexture(this.screenTexture, 1.0);
+    gl.disable(gl.BLEND);
+
+    // save the current screen as the background for the next frame
+    const temp = this.backgroundTexture;
+    this.backgroundTexture = this.screenTexture;
+    this.screenTexture = temp;
+  }
+
+  // NEW: attempt to overlay past screen state (particle tails)
+  drawTexture(texture, opacity) {
+    const gl = this.gl;
+    const program = this.screenProgram;
+    gl.useProgram(program.program);
+
+    util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+    util.bindTexture(gl, texture, 2);
+    gl.uniform1i(program.u_screen, 2);
+    gl.uniform1f(program.u_opacity, opacity);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
   draw(gl, matrix, tile, offset, data) {
     const program = this.drawProgram;
     gl.useProgram(program.program);
+
     util.bindTexture(gl, tile.particleStateTexture0, 0);
     util.bindTexture(gl, data.tileTopLeft.getTexture(gl), 1);
     util.bindTexture(gl, data.tileTopCenter.getTexture(gl), 2);
