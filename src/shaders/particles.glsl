@@ -84,7 +84,7 @@ vec2 update(vec2 pos) {
     // check if mask is > 0.5
     // If it is we relocate this particle
     // TODO: consider using this as a probability
-    bool mask = b  > 0.5;
+    bool mask = b < 0.01;//b  > 0.5;
 
 
     vec2 offset = vec2(velocity.x , -velocity.y) * 0.0001 * u_speed_factor;
@@ -141,6 +141,7 @@ export void particleUpdateFragment() {
     vec2 pos = fromRGBA(color); // decode particle position from pixel RGBA
 
     pos = update(pos);
+    // why is this loop length 100?
     if (u_initialize) {
         for (int i = 0; i < 100; i++) {
             pos = update(pos);
@@ -192,7 +193,7 @@ export void particleDrawFragment() {
     float b = texture2D(u_wind_middle_center, wind_tex_pos).b;
     // the mask can be used as  a  probability  to  relocate particles
     // It  will also be used to hide particles (make them transparent)
-    bool mask = b  > 0.1;
+    bool mask = b < 0.0001;//b  > 0.1;
 
     // // color ramp is encoded in a 16x16 texture
     vec2 ramp_pos = vec2(

@@ -47,39 +47,16 @@ class Particles extends Layer {
       },
       options
     );
-    this.pixelToGridRatio = 20;
+    this.pixelToGridRatio = 20; // not sure how to interpret this
     this.tileSize = 1024; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
     this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
     this._numParticles = 65536;
-    this.fadeOpacity = 0.6; //0.996; // how fast the particle trails fade on each frame
+    this.fadeOpacity = 0.97; // how fast the particle trails fade on each frame
     // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
     this._particleTiles = {};
   }
-
-  /* 
-
-  TODO:
-
-  Create textures to store past and present screen state for tails.
-  In webgl-wind: 
-
- 
-    resize() {
-        const gl = this.gl;
-        const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
-        // screen textures to hold the drawn screen for the previous and the current frame
-        this.backgroundTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-        this.screenTexture = util.createTexture(gl, gl.NEAREST, emptyPixels, gl.canvas.width, gl.canvas.height);
-    } 
-
-    Possibly more difficult though because of tiles...
-    May need to consider the 3x3 tiles manually treated below?
-
-    Consider some of the details in computeVisibleTiles?
-
-  */
 
   initializeScreenTextures() {
     // textures to hold the screen state for the current and the last frame
@@ -135,7 +112,7 @@ class Particles extends Layer {
 
   move() {
     super.move();
-    this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles
+    this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles. Maybe need cleanup like for particle state below?
     const tiles = this.visibleParticleTiles();
     Object.keys(this._particleTiles).forEach(tile => {
       if (tiles.filter(t => t.toString() == tile).length === 0) {
@@ -176,6 +153,7 @@ class Particles extends Layer {
 
     this.framebuffer = gl.createFramebuffer();
 
+    // quad, as in quadrilateral? I.e. drawing "points" via drawing 2 triangles (6 coordinate pairs)?
     this.quadBuffer = util.createBuffer(
       gl,
       new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
@@ -195,48 +173,6 @@ class Particles extends Layer {
       getTexture: () => this.nullTexture
     };
   }
-
-  /*
-  
-  Need to build in screen-drawing textures for particle fade-out.
-  In webgl-wind:
-
-    drawScreen() {
-        const gl = this.gl;
-        // draw the screen into a temporary framebuffer to retain it as the background on the next frame
-        util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-        this.drawTexture(this.backgroundTexture, this.fadeOpacity);
-        this.drawParticles();
-
-        util.bindFramebuffer(gl, null);
-        // enable blending to support drawing on top of an existing background (e.g. a map)
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        this.drawTexture(this.screenTexture, 1.0);
-        gl.disable(gl.BLEND);
-
-        // save the current screen as the background for the next frame
-        const temp = this.backgroundTexture;
-        this.backgroundTexture = this.screenTexture;
-        this.screenTexture = temp;
-    }
-
-    drawTexture(texture, opacity) {
-        const gl = this.gl;
-        const program = this.screenProgram;
-        gl.useProgram(program.program);
-
-        util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
-        util.bindTexture(gl, texture, 2);
-        gl.uniform1i(program.u_screen, 2);
-        gl.uniform1f(program.u_opacity, opacity);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
-  
-  */
 
   // This is a callback from mapbox for rendering into a texture
   prerender(gl) {
@@ -373,8 +309,10 @@ class Particles extends Layer {
     util.bindTexture(gl, data.tileBottomCenter.getTexture(gl), 8);
     util.bindTexture(gl, data.tileBottomRight.getTexture(gl), 9);
 
+    // positions
     gl.uniform1i(program.u_particles, 0);
 
+    // speeds
     gl.uniform1i(program.u_wind_top_left, 1);
     gl.uniform1i(program.u_wind_top_center, 2);
     gl.uniform1i(program.u_wind_top_right, 3);
@@ -435,19 +373,22 @@ class Particles extends Layer {
   drawScreen(gl, matrix, tile, offset, data) {
     // const gl = this.gl;
 
+    // enable blending to support drawing on top of an existing background (e.g. a map)
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    //Remember that if the canvas and the texture are different sizes you'll need to call gl.viewport to render correctly
+    this.drawTexture(this.screenTexture, 1.0);
+    gl.disable(gl.BLEND);
+
     // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+    // what happens to screenTexture here? I don't see that it actually gets drawn to the frameBuffer 
     util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
     this.drawTexture(this.backgroundTexture, this.fadeOpacity);
     this.draw(gl, matrix, tile, offset, data);
 
-    util.bindFramebuffer(gl, null);
-    // enable blending to support drawing on top of an existing background (e.g. a map)
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    this.drawTexture(this.screenTexture, 1.0);
-    gl.disable(gl.BLEND);
+    util.bindFramebuffer(gl, null); // this clears the frameBuffer so that we can draw to the canvas instead  
 
     // save the current screen as the background for the next frame
     const temp = this.backgroundTexture;
