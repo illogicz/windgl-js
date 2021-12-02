@@ -180,7 +180,7 @@ export void particleDrawVertex() {
 
     v_particle_pos = relativeCoordsMerc;
 
-    gl_PointSize = 2.0;
+    gl_PointSize = 1.0;
     gl_Position = u_matrix * vec4(worldCoordsMerc, 0, 1);
 }
 
@@ -227,5 +227,5 @@ uniform float u_opacity;
 export void screenDrawFragment() {
     vec4 color = texture2D(u_screen, 1.0 - v_tex_pos);
     // a hack to guarantee opacity fade out even with a value close to 1.0
-    gl_FragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
+    gl_FragColor = vec4(color.rgb, floor(255.0 * color.a * u_opacity) / 255.0);
 }

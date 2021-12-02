@@ -52,7 +52,7 @@ class Particles extends Layer {
 
     this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
-    this._numParticles = 65536;
+    this._numParticles = 128*128//65536;
     this.fadeOpacity = 0.97; // how fast the particle trails fade on each frame
     // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
     this._particleTiles = {};
@@ -82,8 +82,8 @@ class Particles extends Layer {
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
-      minzoom: 0,
-      maxzoom: this.windData.maxzoom + 3 // how much overzoom to allow?
+      minzoom: 3, // TODO: changed from 0 for testing
+      maxzoom: this.windData.maxzoom + 5 // (3) how much overzoom to allow?
     });
   }
 
