@@ -29,9 +29,9 @@ class Particles extends Layer {
           default: "white",
           expression: {
             interpolated: true,
-            parameters: ["zoom", "feature"]
+            parameters: ["zoom", "feature"],
           },
-          "property-type": "data-driven"
+          "property-type": "data-driven",
         },
         "particle-speed": {
           type: "number",
@@ -40,10 +40,10 @@ class Particles extends Layer {
           transition: true,
           expression: {
             interpolated: true,
-            parameters: ["zoom"]
+            parameters: ["zoom"],
           },
-          "property-type": "data-constant"
-        }
+          "property-type": "data-constant",
+        },
       },
       options
     );
@@ -135,7 +135,7 @@ class Particles extends Layer {
         delete this._particleTiles[tile];
       }
     });
-    tiles.forEach(tile => {
+    tiles.forEach((tile) => {
       if (!this._particleTiles[tile]) {
         this._particleTiles[tile] = this.initializeParticleTile();
       }
@@ -183,7 +183,7 @@ class Particles extends Layer {
     );
 
     this.nullTile = {
-      getTexture: () => this.nullTexture
+      getTexture: () => this.nullTexture,
     };
   }
 
@@ -193,7 +193,7 @@ class Particles extends Layer {
       const blendingEnabled = gl.isEnabled(gl.BLEND);
       gl.disable(gl.BLEND);
       const tiles = this.visibleParticleTiles();
-      tiles.forEach(tile => {
+      tiles.forEach((tile) => {
         const found = this.findAssociatedDataTiles(tile);
         if (found) {
           this.update(gl, this._particleTiles[tile], found);
@@ -210,10 +210,10 @@ class Particles extends Layer {
    */
   computeLoadableTiles() {
     const result = {};
-    const add = tile => (result[tile] = tile);
-    this.visibleParticleTiles().forEach(tileID => {
+    const add = (tile) => (result[tile] = tile);
+    this.visibleParticleTiles().forEach((tileID) => {
       let t = tileID;
-      let matrix = new DOMMatrix();
+      let matrix = new window.DOMMatrix();
       while (!t.isRoot()) {
         if (t.z <= this.windData.maxzoom) break;
         const [x, y] = t.quadrant();
@@ -247,7 +247,7 @@ class Particles extends Layer {
   findAssociatedDataTiles(tileID) {
     let t = tileID;
     let found;
-    let matrix = new DOMMatrix();
+    let matrix = new window.DOMMatrix();
     while (!t.isRoot()) {
       if ((found = this._tiles[t])) break;
       const [x, y] = t.quadrant();
@@ -294,7 +294,7 @@ class Particles extends Layer {
       tileMiddleRight: tileMiddleRight || this.nullTile,
       tileBottomLeft: tileBottomLeft || this.nullTile,
       tileBottomCenter: tileBottomCenter || this.nullTile,
-      tileBottomRight: tileBottomRight || this.nullTile
+      tileBottomRight: tileBottomRight || this.nullTile,
     };
   }
 
@@ -349,6 +349,7 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.flush();
 
     // swap the particle state textures so the new one becomes the current one
     const temp = tile.particleStateTexture0;
@@ -358,7 +359,7 @@ class Particles extends Layer {
 
   render(gl, matrix) {
     if (this.windData) {
-      this.visibleParticleTiles().forEach(tile => {
+      this.visibleParticleTiles().forEach((tile) => {
         const found = this.findAssociatedDataTiles(tile);
         if (!found) return;
 
@@ -469,7 +470,8 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.POINTS, 0, this._numParticles);
+    gl.flush();
   }
 }
 
-export default options => new Particles(options);
+export default (options) => new Particles(options);
