@@ -14227,10 +14227,16 @@
 
 	  var tileCount = Math.pow( 2, practicalZoom );
 
-	  var top = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
-	  var bottom = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
+	  var top0 = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
+	  var bottom0 = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
 	  var left = Math.floor(((bounds.getWest() + 180) / 360) * tileCount);
 	  var right = Math.ceil(((bounds.getEast() + 180) / 360) * tileCount);
+
+	  var top = (Math.floor((1-Math.log(Math.tan(bounds.getNorth()*Math.PI/180) + 1/Math.cos(bounds.getNorth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
+	  var bottom = (Math.ceil((1-Math.log(Math.tan(bounds.getSouth()*Math.PI/180) + 1/Math.cos(bounds.getSouth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
+
+	  console.log(top0, bottom0, top, bottom);
+
 
 	  var tiles = [];
 	  for (var y = top; y < bottom; y++) {
@@ -14339,7 +14345,7 @@
 	  }
 	};
 
-	var sampleFill = function (gl) { return createProgram(gl, "precision mediump float;vec2 i(vec2 b){float a=-180.*b.y+90.;a=(180.-57.29578*log(tan(.785398+a*3.141593/360.)))/360.;return vec2(b.x,a);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform mat4 u_matrix,u_offset;attribute vec2 a_pos;varying vec2 g;void main(){vec2 b=f(a_pos,u_offset),a=i(b);g=a,gl_Position=u_matrix*vec4(a,0,1);}", "precision mediump float;vec2 j(vec2 a){float b=a.y;return vec2(a.x,b);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform vec2 u_wind_res,u_wind_min,u_wind_max;uniform float u_opacity;uniform sampler2D u_wind,u_color_ramp;uniform mat4 u_offset_inverse;varying vec2 g;vec2 d(const vec2 a){return texture2D(u_wind,a).rg;}vec2 k(const vec2 e){vec2 a=1./u_wind_res,b=floor(e*u_wind_res)*a,c=fract(e*u_wind_res),h=d(b),l=d(b+vec2(a.x,0)),m=d(b+vec2(0,a.y)),n=d(b+a);return mix(mix(h,l,c.x),mix(m,n,c.x),c.y);}vec2 o(const vec2 a){return mix(u_wind_min,u_wind_max,k(a));}float p(const vec2 a){return length(o(a))/length(u_wind_max);}void main(){vec2 b=j(g),c=f(b,u_offset_inverse);float a=p(c);vec2 e=vec2(fract(16.*a),floor(16.*a)/16.);vec4 h=texture2D(u_color_ramp,e);gl_FragColor=vec4(floor(255.*h*u_opacity)/255.);}"); };
+	var sampleFill = function (gl) { return createProgram(gl, "precision mediump float;vec2 i(vec2 b){float a=-180.*b.y+90.;a=(180.-57.29578*log(tan(.785398+a*3.141593/360.)))/360.;return vec2(b.x,a);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform mat4 u_matrix,u_offset;attribute vec2 a_pos;varying vec2 g;void main(){vec2 b=f(a_pos,u_offset),a=i(b);g=a,gl_Position=u_matrix*vec4(a,0,1);}", "precision mediump float;vec2 j(vec2 b){float a=radians(180.-b.y*360.);a=114.591559*atan(exp(a))-90.,a=a/-180.+.5;return vec2(b.x,a);}vec2 f(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform vec2 u_wind_res,u_wind_min,u_wind_max;uniform float u_opacity;uniform sampler2D u_wind,u_color_ramp;uniform mat4 u_offset_inverse;varying vec2 g;vec2 d(const vec2 a){return texture2D(u_wind,a).rg;}vec2 k(const vec2 e){vec2 a=1./u_wind_res,b=floor(e*u_wind_res)*a,c=fract(e*u_wind_res),h=d(b),l=d(b+vec2(a.x,0)),m=d(b+vec2(0,a.y)),n=d(b+a);return mix(mix(h,l,c.x),mix(m,n,c.x),c.y);}vec2 o(const vec2 a){return mix(u_wind_min,u_wind_max,k(a));}float p(const vec2 a){return length(o(a))/length(u_wind_max);}void main(){vec2 b=j(g),c=f(b,u_offset_inverse);float a=p(c);vec2 e=vec2(fract(16.*a),floor(16.*a)/16.);vec4 h=texture2D(u_color_ramp,e);gl_FragColor=vec4(floor(255.*h*u_opacity)/255.);}"); };
 
 	var SampleFill = /*@__PURE__*/(function (Layer$$1) {
 	  function SampleFill(options) {
@@ -14443,9 +14449,11 @@
 
 	function sampleFill$1 (options) { return new SampleFill(options); }
 
-	var particleUpdate = function (gl) { return createProgram(gl, "precision highp float;attribute vec2 a_pos;varying vec2 n;void main(){n=a_pos,gl_Position=vec4(1.-2.*a_pos,0,1);}const vec3 h=vec3(12.9898,78.233,4375.85453);const vec2 e=vec2(1.,255.);", "precision highp float;vec2 i(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform sampler2D u_particles,u_wind_top_left,u_wind_top_center,u_wind_top_right,u_wind_middle_left,u_wind_middle_center,u_wind_middle_right,u_wind_bottom_left,u_wind_bottom_center,u_wind_bottom_right;uniform vec2 u_wind_res,u_wind_min,u_wind_max;uniform bool u_initialize;uniform float u_rand_seed,u_speed_factor,u_drop_rate,u_drop_rate_bump;uniform mat4 u_data_matrix;varying vec2 n;const vec3 h=vec3(12.9898,78.233,4375.85453);float o(const vec2 b){float a=dot(h.xy,b);return fract(sin(a)*(h.z+a));}vec2 f(const vec2 a){return a.x>1.&&a.y>1.?texture2D(u_wind_bottom_right,a-vec2(1,1)).rg:a.x>0.&&a.y>1.?texture2D(u_wind_bottom_center,a-vec2(0,1)).rg:a.y>1.?texture2D(u_wind_bottom_left,a-vec2(-1,1)).rg:a.x>1.&&a.y>0.?texture2D(u_wind_middle_right,a-vec2(1,0)).rg:a.x>0.&&a.y>0.?texture2D(u_wind_middle_center,a-vec2(0,0)).rg:a.y>0.?texture2D(u_wind_middle_left,a-vec2(-1,0)).rg:a.x>1.?texture2D(u_wind_top_right,a-vec2(1,-1)).rg:a.x>0.?texture2D(u_wind_top_center,a-vec2(0,-1)).rg:texture2D(u_wind_top_left,a-vec2(-1,-1)).rg;}vec2 s(const vec2 d){vec2 a=1./u_wind_res,b=floor(d*u_wind_res)*a,c=fract(d*u_wind_res),g=f(b),j=f(b+vec2(a.x,0)),k=f(b+vec2(0,a.y)),l=f(b+a);return mix(mix(g,j,c.x),mix(k,l,c.x),c.y);}vec2 r(vec2 a){vec2 g=i(a,u_data_matrix),b=mix(u_wind_min,u_wind_max,s(g));float j=length(b)/length(u_wind_max),k=texture2D(u_wind_middle_center,g).b;bool l=k>.5;vec2 t=vec2(b.x,-b.y)*1e-4*u_speed_factor;a=fract(1.+a+t);vec2 c=(a+n)*u_rand_seed;float d=u_drop_rate+j*u_drop_rate_bump+smoothstep(.24,.5,length(a-vec2(.5,.5))*.7);d=l?1.:d;float u=step(1.-d,o(c));vec2 v=vec2(.5*o(c+1.3)+.25,.5*o(c+2.1)+.25);return mix(a,v,u);}const vec2 e=vec2(1.,255.),m=1./e;vec2 p(const vec4 b){vec4 a=floor(b*255.+.5)/255.;float c=dot(a.rg,m),d=dot(a.ba,m);return vec2(c,d);}vec4 w(const vec2 c){vec2 a=e*c.x;a=fract(a),a-=a.yy*vec2(.003922,0.);vec2 b=e*c.y;b=fract(b),b-=b.yy*vec2(.003922,0.);return vec4(a,b);}void main(){vec4 c=texture2D(u_particles,n);vec2 a=p(c);a=r(a);if(u_initialize)for(int b=0;b<100;b++)a=r(a);gl_FragColor=w(a);}"); };
+	var particleUpdate = function (gl) { return createProgram(gl, "precision highp float;attribute vec2 a_pos;varying vec2 f;void main(){f=a_pos,gl_Position=vec4(1.-2.*a_pos,0,1);}const vec3 g=vec3(12.9898,78.233,4375.85453);const vec2 e=vec2(1.,255.);", "precision highp float;vec2 j(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform sampler2D u_particles,u_wind_top_left,u_wind_top_center,u_wind_top_right,u_wind_middle_left,u_wind_middle_center,u_wind_middle_right,u_wind_bottom_left,u_wind_bottom_center,u_wind_bottom_right;uniform vec2 u_wind_res,u_wind_min,u_wind_max;uniform bool u_initialize;uniform float u_rand_seed,u_speed_factor,u_drop_rate,u_drop_rate_bump;uniform mat4 u_data_matrix;varying vec2 f;const vec3 g=vec3(12.9898,78.233,4375.85453);float o(const vec2 b){float a=dot(g.xy,b);return fract(sin(a)*(g.z+a));}vec2 h(const vec2 a){return a.x>1.&&a.y>1.?texture2D(u_wind_bottom_right,a-vec2(1,1)).rg:a.x>0.&&a.y>1.?texture2D(u_wind_bottom_center,a-vec2(0,1)).rg:a.y>1.?texture2D(u_wind_bottom_left,a-vec2(-1,1)).rg:a.x>1.&&a.y>0.?texture2D(u_wind_middle_right,a-vec2(1,0)).rg:a.x>0.&&a.y>0.?texture2D(u_wind_middle_center,a-vec2(0,0)).rg:a.y>0.?texture2D(u_wind_middle_left,a-vec2(-1,0)).rg:a.x>1.?texture2D(u_wind_top_right,a-vec2(1,-1)).rg:a.x>0.?texture2D(u_wind_top_center,a-vec2(0,-1)).rg:texture2D(u_wind_top_left,a-vec2(-1,-1)).rg;}vec2 s(const vec2 d){vec2 a=1./u_wind_res,b=floor(d*u_wind_res)*a,c=fract(d*u_wind_res),i=h(b),k=h(b+vec2(a.x,0)),l=h(b+vec2(0,a.y)),m=h(b+a);return mix(mix(i,k,c.x),mix(l,m,c.x),c.y);}vec2 r(vec2 a){vec2 i=j(a,u_data_matrix),b=mix(u_wind_min,u_wind_max,s(i));float k=length(b)/length(u_wind_max),l=texture2D(u_wind_middle_center,i).b;bool m=l<.01;vec2 t=vec2(b.x,-b.y)*1e-4*u_speed_factor;a=fract(1.+a+t);vec2 c=(a+f)*u_rand_seed;float d=u_drop_rate+k*u_drop_rate_bump+smoothstep(.24,.5,length(a-vec2(.5,.5))*.7);d=m?1.:d;float u=step(1.-d,o(c));vec2 v=vec2(.5*o(c+1.3)+.25,.5*o(c+2.1)+.25);return mix(a,v,u);}const vec2 e=vec2(1.,255.),n=1./e;vec2 p(const vec4 b){vec4 a=floor(b*255.+.5)/255.;float c=dot(a.rg,n),d=dot(a.ba,n);return vec2(c,d);}vec4 w(const vec2 c){vec2 a=e*c.x;a=fract(a),a-=a.yy*vec2(.003922,0.);vec2 b=e*c.y;b=fract(b),b-=b.yy*vec2(.003922,0.);return vec4(a,b);}void main(){vec4 c=texture2D(u_particles,f);vec2 a=p(c);a=r(a);if(u_initialize)for(int b=0;b<100;b++)a=r(a);gl_FragColor=w(a);}"); };
 
-	var particleDraw = function (gl) { return createProgram(gl, "precision highp float;vec2 i(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform sampler2D u_particles;uniform float u_particles_res;uniform mat4 u_matrix,u_offset;const vec3 h=vec3(12.9898,78.233,4375.85453);const vec2 e=vec2(1.,255.),m=1./e;vec2 p(const vec4 b){vec4 a=floor(b*255.+.5)/255.;float c=dot(a.rg,m),d=dot(a.ba,m);return vec2(c,d);}attribute float a_index;varying vec2 q;void main(){vec4 b=texture2D(u_particles,vec2(fract(a_index/u_particles_res),floor(a_index/u_particles_res)/u_particles_res));vec2 a=p(b),c=i(a,u_offset);q=a,gl_PointSize=2.,gl_Position=u_matrix*vec4(c,0,1);}", "precision highp float;vec2 i(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform sampler2D u_wind_top_left,u_wind_top_center,u_wind_top_right,u_wind_middle_left,u_wind_middle_center,u_wind_middle_right,u_wind_bottom_left,u_wind_bottom_center,u_wind_bottom_right,u_color_ramp;uniform vec2 u_wind_min,u_wind_max;uniform mat4 u_data_matrix;const vec3 h=vec3(12.9898,78.233,4375.85453);vec2 f(const vec2 a){return a.x>1.&&a.y>1.?texture2D(u_wind_bottom_right,a-vec2(1,1)).rg:a.x>0.&&a.y>1.?texture2D(u_wind_bottom_center,a-vec2(0,1)).rg:a.y>1.?texture2D(u_wind_bottom_left,a-vec2(-1,1)).rg:a.x>1.&&a.y>0.?texture2D(u_wind_middle_right,a-vec2(1,0)).rg:a.x>0.&&a.y>0.?texture2D(u_wind_middle_center,a-vec2(0,0)).rg:a.y>0.?texture2D(u_wind_middle_left,a-vec2(-1,0)).rg:a.x>1.?texture2D(u_wind_top_right,a-vec2(1,-1)).rg:a.x>0.?texture2D(u_wind_top_center,a-vec2(0,-1)).rg:texture2D(u_wind_top_left,a-vec2(-1,-1)).rg;}const vec2 e=vec2(1.,255.);varying vec2 q;void main(){vec2 c=i(q,u_data_matrix),d=mix(u_wind_min,u_wind_max,f(c));float a=length(d)/length(u_wind_max),g=texture2D(u_wind_middle_center,c).b;bool j=g>.1;vec2 k=vec2(fract(16.*a),floor(16.*a)/16.);vec4 b=texture2D(u_color_ramp,k);float l=clamp(a*16.,0.,1.);b=b*l*float(!j),gl_FragColor=b;}"); };
+	var particleDraw = function (gl) { return createProgram(gl, "precision highp float;vec2 j(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform sampler2D u_particles;uniform float u_particles_res;uniform mat4 u_matrix,u_offset;const vec3 g=vec3(12.9898,78.233,4375.85453);const vec2 e=vec2(1.,255.),n=1./e;vec2 p(const vec4 b){vec4 a=floor(b*255.+.5)/255.;float c=dot(a.rg,n),d=dot(a.ba,n);return vec2(c,d);}attribute float a_index;varying vec2 q;void main(){vec4 b=texture2D(u_particles,vec2(fract(a_index/u_particles_res),floor(a_index/u_particles_res)/u_particles_res));vec2 a=p(b),c=j(a,u_offset);q=a,gl_PointSize=1.,gl_Position=u_matrix*vec4(c,0,1);}", "precision highp float;vec2 j(vec2 b,mat4 c){vec4 a=c*vec4(b,1,1);return a.xy/a.w;}uniform sampler2D u_wind_top_left,u_wind_top_center,u_wind_top_right,u_wind_middle_left,u_wind_middle_center,u_wind_middle_right,u_wind_bottom_left,u_wind_bottom_center,u_wind_bottom_right,u_color_ramp;uniform vec2 u_wind_min,u_wind_max;uniform mat4 u_data_matrix;const vec3 g=vec3(12.9898,78.233,4375.85453);vec2 h(const vec2 a){return a.x>1.&&a.y>1.?texture2D(u_wind_bottom_right,a-vec2(1,1)).rg:a.x>0.&&a.y>1.?texture2D(u_wind_bottom_center,a-vec2(0,1)).rg:a.y>1.?texture2D(u_wind_bottom_left,a-vec2(-1,1)).rg:a.x>1.&&a.y>0.?texture2D(u_wind_middle_right,a-vec2(1,0)).rg:a.x>0.&&a.y>0.?texture2D(u_wind_middle_center,a-vec2(0,0)).rg:a.y>0.?texture2D(u_wind_middle_left,a-vec2(-1,0)).rg:a.x>1.?texture2D(u_wind_top_right,a-vec2(1,-1)).rg:a.x>0.?texture2D(u_wind_top_center,a-vec2(0,-1)).rg:texture2D(u_wind_top_left,a-vec2(-1,-1)).rg;}const vec2 e=vec2(1.,255.);varying vec2 q;void main(){vec2 c=j(q,u_data_matrix),d=mix(u_wind_min,u_wind_max,h(c));float a=length(d)/length(u_wind_max),i=texture2D(u_wind_middle_center,c).b;bool k=i<1e-4;vec2 l=vec2(fract(16.*a),floor(16.*a)/16.);vec4 b=texture2D(u_color_ramp,l);float m=clamp(a*16.,0.,1.);b=b*m*float(!k),gl_FragColor=b;}"); };
+
+	var screenDraw = function (gl) { return createProgram(gl, "precision highp float;attribute vec2 a_pos;varying vec2 f;const vec3 g=vec3(12.9898,78.233,4375.85453);const vec2 e=vec2(1.,255.);void main(){f=a_pos,gl_Position=vec4(1.-2.*a_pos,0,1);}", "precision highp float;varying vec2 f;const vec3 g=vec3(12.9898,78.233,4375.85453);const vec2 e=vec2(1.,255.);uniform sampler2D u_screen;uniform float u_opacity;void main(){vec4 a=texture2D(u_screen,1.-f);gl_FragColor=vec4(a.rgb,floor(255.*a.a*u_opacity)/255.);}"); };
 
 	/**
 	 * This layer simulates a particles system where the particles move according
@@ -14487,12 +14495,13 @@
 	      },
 	      options
 	    );
-	    this.pixelToGridRatio = 20;
-	    this.tileSize = 1024;
+	    this.pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
+	    this.tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
 	    this.dropRate = 0.003; // how often the particles move to a random place
 	    this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
-	    this._numParticles = 65536;
+	    this._numParticles = 128*128;//65536;
+	    this.fadeOpacity = 0.97; // how fast the particle trails fade on each frame
 	    // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
 	    this._particleTiles = {};
 	  }
@@ -14501,10 +14510,32 @@
 	  Particles.prototype = Object.create( Layer$$1 && Layer$$1.prototype );
 	  Particles.prototype.constructor = Particles;
 
+	  Particles.prototype.initializeScreenTextures = function initializeScreenTextures () {
+	    // textures to hold the screen state for the current and the last frame
+	    var emptyPixels = new Uint8Array(
+	      this.gl.canvas.width * this.gl.canvas.height * 4
+	    );
+	    this.backgroundTexture = createTexture(
+	      this.gl,
+	      this.gl.NEAREST,
+	      emptyPixels,
+	      this.gl.canvas.width,
+	      this.gl.canvas.height
+	    );
+	    this.screenTexture = createTexture(
+	      this.gl,
+	      this.gl.NEAREST,
+	      emptyPixels,
+	      this.gl.canvas.width,
+	      this.gl.canvas.height
+	    );
+	    // return { backgroundTexture, screenTexture };
+	  };
+
 	  Particles.prototype.visibleParticleTiles = function visibleParticleTiles () {
 	    return this.computeVisibleTiles(2, this.tileSize, {
-	      minzoom: 0,
-	      maxzoom: this.windData.maxzoom + 3 // how much overzoom to allow?
+	      minzoom: 3, // TODO: changed from 0 for testing
+	      maxzoom: this.windData.maxzoom + 5 // (3) how much overzoom to allow?
 	    });
 	  };
 
@@ -14535,6 +14566,7 @@
 	    var this$1 = this;
 
 	    Layer$$1.prototype.move.call(this);
+	    this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles. Maybe need cleanup like for particle state below?
 	    var tiles = this.visibleParticleTiles();
 	    Object.keys(this._particleTiles).forEach(function (tile) {
 	      if (tiles.filter(function (t) { return t.toString() == tile; }).length === 0) {
@@ -14572,9 +14604,12 @@
 
 	    this.updateProgram = particleUpdate(gl);
 	    this.drawProgram = particleDraw(gl);
+	    // NEW
+	    this.screenProgram = screenDraw(gl);
 
 	    this.framebuffer = gl.createFramebuffer();
 
+	    // quad, as in quadrilateral? I.e. drawing "points" via drawing 2 triangles (6 coordinate pairs)?
 	    this.quadBuffer = createBuffer(
 	      gl,
 	      new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
@@ -14738,8 +14773,10 @@
 	    bindTexture(gl, data.tileBottomCenter.getTexture(gl), 8);
 	    bindTexture(gl, data.tileBottomRight.getTexture(gl), 9);
 
+	    // positions
 	    gl.uniform1i(program.u_particles, 0);
 
+	    // speeds
 	    gl.uniform1i(program.u_wind_top_left, 1);
 	    gl.uniform1i(program.u_wind_top_center, 2);
 	    gl.uniform1i(program.u_wind_top_right, 3);
@@ -14778,7 +14815,16 @@
 	        var found = this$1.findAssociatedDataTiles(tile);
 	        if (!found) { return; }
 
-	        this$1.draw(
+	        // this.draw(
+	        //   gl,
+	        //   matrix,
+	        //   this._particleTiles[tile],
+	        //   tile.viewMatrix(2),
+	        //   found
+	        // );
+
+	        // draw() is now embedded in drawScreen()
+	        this$1.drawScreen(
 	          gl,
 	          matrix,
 	          this$1._particleTiles[tile],
@@ -14789,9 +14835,51 @@
 	    }
 	  };
 
+	  // NEW: attempt to overlay past screen state (particle tails)
+	  Particles.prototype.drawScreen = function drawScreen (gl, matrix, tile, offset, data) {
+	    // const gl = this.gl;
+
+	    // enable blending to support drawing on top of an existing background (e.g. a map)
+	    gl.enable(gl.BLEND);
+	    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	    //Remember that if the canvas and the texture are different sizes you'll need to call gl.viewport to render correctly
+	    this.drawTexture(this.screenTexture, 1.0);
+	    gl.disable(gl.BLEND);
+
+	    // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+	    // what happens to screenTexture here? I don't see that it actually gets drawn to the frameBuffer 
+	    bindFramebuffer(gl, this.framebuffer, this.screenTexture);
+	    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+	    this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+	    this.draw(gl, matrix, tile, offset, data);
+
+	    bindFramebuffer(gl, null); // this clears the frameBuffer so that we can draw to the canvas instead  
+
+	    // save the current screen as the background for the next frame
+	    var temp = this.backgroundTexture;
+	    this.backgroundTexture = this.screenTexture;
+	    this.screenTexture = temp;
+	  };
+
+	  // NEW: attempt to overlay past screen state (particle tails)
+	  Particles.prototype.drawTexture = function drawTexture (texture, opacity) {
+	    var gl = this.gl;
+	    var program = this.screenProgram;
+	    gl.useProgram(program.program);
+
+	    bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+	    bindTexture(gl, texture, 2);
+	    gl.uniform1i(program.u_screen, 2);
+	    gl.uniform1f(program.u_opacity, opacity);
+
+	    gl.drawArrays(gl.TRIANGLES, 0, 6);
+	  };
+
 	  Particles.prototype.draw = function draw (gl, matrix, tile, offset, data) {
 	    var program = this.drawProgram;
 	    gl.useProgram(program.program);
+
 	    bindTexture(gl, tile.particleStateTexture0, 0);
 	    bindTexture(gl, data.tileTopLeft.getTexture(gl), 1);
 	    bindTexture(gl, data.tileTopCenter.getTexture(gl), 2);
