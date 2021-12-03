@@ -58,7 +58,7 @@
 	return mapboxgl;
 
 	}));
-	//# sourceMappingURL=mapbox-gl.js.map
+
 	});
 
 	function createShader(gl, type, source) {
@@ -14003,7 +14003,7 @@
 	  Object.defineProperty(exports, '__esModule', { value: true });
 
 	}));
-	//# sourceMappingURL=index.js.map
+
 	});
 
 	unwrapExports(styleSpec);
@@ -14227,15 +14227,13 @@
 
 	  var tileCount = Math.pow( 2, practicalZoom );
 
-	  var top0 = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
-	  var bottom0 = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
+	  // const top = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
+	  // const bottom = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
 	  var left = Math.floor(((bounds.getWest() + 180) / 360) * tileCount);
 	  var right = Math.ceil(((bounds.getEast() + 180) / 360) * tileCount);
 
 	  var top = (Math.floor((1-Math.log(Math.tan(bounds.getNorth()*Math.PI/180) + 1/Math.cos(bounds.getNorth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
 	  var bottom = (Math.ceil((1-Math.log(Math.tan(bounds.getSouth()*Math.PI/180) + 1/Math.cos(bounds.getSouth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
-
-	  console.log(top0, bottom0, top, bottom);
 
 
 	  var tiles = [];
@@ -14302,6 +14300,7 @@
 	};
 
 	// Finds all tiles that should be loaded from the server. This gets overriden in some subclasses.
+	// RC: in our case it is definitely overloaded
 	Layer.prototype.computeLoadableTiles = function computeLoadableTiles () {
 	  return this.computeVisibleTiles(
 	    this.pixelToGridRatio,
@@ -14534,8 +14533,8 @@
 
 	  Particles.prototype.visibleParticleTiles = function visibleParticleTiles () {
 	    return this.computeVisibleTiles(2, this.tileSize, {
-	      minzoom: 0,
-	      maxzoom: this.windData.maxzoom + 3, // how much overzoom to allow?
+	      minzoom: 3, // TODO: changed from 0 for testing
+	      maxzoom: this.windData.maxzoom + 5 // (3) how much overzoom to allow?
 	    });
 	  };
 
@@ -14568,6 +14567,19 @@
 	    Layer$$1.prototype.move.call(this);
 	    this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles. Maybe need cleanup like for particle state below?
 	    var tiles = this.visibleParticleTiles();
+	    // RC: //possibly looking at x's offset by -1
+	    // let tx = []
+	    // let ty = []
+	    // let tz = []
+	    // tiles.forEach(tile => {
+	    //   // tx.push(tile.x)
+	    //   // ty.push(tile.y)
+	    //   // tz.push(tile.z)
+	    //   tx.push(tile.z.toFixed(0) + tile.x.toFixed(0) + tile.y.toFixed(0))
+	    //   //tile.x = tile.x + 1
+	    // })
+	    // console.log('z x y', tx)
+	    // console.log(tiles.length)
 	    Object.keys(this._particleTiles).forEach(function (tile) {
 	      if (tiles.filter(function (t) { return t.toString() == tile; }).length === 0) {
 	        // cleanup
@@ -14660,7 +14672,7 @@
 	    var add = function (tile) { return (result[tile] = tile); };
 	    this.visibleParticleTiles().forEach(function (tileID) {
 	      var t = tileID;
-	      var matrix = new DOMMatrix();
+	      var matrix = new window.DOMMatrix();
 	      while (!t.isRoot()) {
 	        if (t.z <= this$1.windData.maxzoom) { break; }
 	        var ref = t.quadrant();
@@ -14696,7 +14708,7 @@
 	  Particles.prototype.findAssociatedDataTiles = function findAssociatedDataTiles (tileID) {
 	    var t = tileID;
 	    var found;
-	    var matrix = new DOMMatrix();
+	    var matrix = new window.DOMMatrix();
 	    while (!t.isRoot()) {
 	      if ((found = this._tiles[t])) { break; }
 	      var ref = t.quadrant();
