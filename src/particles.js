@@ -114,6 +114,19 @@ class Particles extends Layer {
     super.move();
     this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles. Maybe need cleanup like for particle state below?
     const tiles = this.visibleParticleTiles();
+    // RC: //possibly looking at x's offset by -1
+    // let tx = []
+    // let ty = []
+    // let tz = []
+    // tiles.forEach(tile => {
+    //   // tx.push(tile.x)
+    //   // ty.push(tile.y)
+    //   // tz.push(tile.z)
+    //   tx.push(tile.z.toFixed(0) + tile.x.toFixed(0) + tile.y.toFixed(0))
+    //   //tile.x = tile.x + 1
+    // })
+    // console.log('z x y', tx)
+    // console.log(tiles.length)
     Object.keys(this._particleTiles).forEach(tile => {
       if (tiles.filter(t => t.toString() == tile).length === 0) {
         // cleanup
