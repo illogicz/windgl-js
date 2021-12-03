@@ -1,7 +1,11 @@
 import * as util from "./util";
 import Layer from "./layer";
 
-import { particleUpdate, particleDraw } from "./shaders/particles.glsl";
+import {
+  particleUpdate,
+  particleDraw,
+  screenDraw
+} from "./shaders/particles.glsl";
 
 /**
  * This layer simulates a particles system where the particles move according
@@ -43,20 +47,43 @@ class Particles extends Layer {
       },
       options
     );
-    this.pixelToGridRatio = 20;
-    this.tileSize = 1024;
+    this.pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
+    this.tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
     this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
-    this._numParticles = 65536;
+    this._numParticles = 128*128//65536;
+    this.fadeOpacity = 0.97; // how fast the particle trails fade on each frame
     // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
     this._particleTiles = {};
   }
 
+  initializeScreenTextures() {
+    // textures to hold the screen state for the current and the last frame
+    const emptyPixels = new Uint8Array(
+      this.gl.canvas.width * this.gl.canvas.height * 4
+    );
+    this.backgroundTexture = util.createTexture(
+      this.gl,
+      this.gl.NEAREST,
+      emptyPixels,
+      this.gl.canvas.width,
+      this.gl.canvas.height
+    );
+    this.screenTexture = util.createTexture(
+      this.gl,
+      this.gl.NEAREST,
+      emptyPixels,
+      this.gl.canvas.width,
+      this.gl.canvas.height
+    );
+    // return { backgroundTexture, screenTexture };
+  }
+
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
-      minzoom: 0,
-      maxzoom: this.windData.maxzoom + 3, // how much overzoom to allow?
+      minzoom: 3, // TODO: changed from 0 for testing
+      maxzoom: this.windData.maxzoom + 5 // (3) how much overzoom to allow?
     });
   }
 
@@ -85,9 +112,23 @@ class Particles extends Layer {
 
   move() {
     super.move();
+    this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles. Maybe need cleanup like for particle state below?
     const tiles = this.visibleParticleTiles();
-    Object.keys(this._particleTiles).forEach((tile) => {
-      if (tiles.filter((t) => t.toString() == tile).length === 0) {
+    // RC: //possibly looking at x's offset by -1
+    // let tx = []
+    // let ty = []
+    // let tz = []
+    // tiles.forEach(tile => {
+    //   // tx.push(tile.x)
+    //   // ty.push(tile.y)
+    //   // tz.push(tile.z)
+    //   tx.push(tile.z.toFixed(0) + tile.x.toFixed(0) + tile.y.toFixed(0))
+    //   //tile.x = tile.x + 1
+    // })
+    // console.log('z x y', tx)
+    // console.log(tiles.length)
+    Object.keys(this._particleTiles).forEach(tile => {
+      if (tiles.filter(t => t.toString() == tile).length === 0) {
         // cleanup
         this.gl.deleteTexture(tile.particleStateTexture0);
         this.gl.deleteTexture(tile.particleStateTexture1);
@@ -120,9 +161,12 @@ class Particles extends Layer {
   initialize(map, gl) {
     this.updateProgram = particleUpdate(gl);
     this.drawProgram = particleDraw(gl);
+    // NEW
+    this.screenProgram = screenDraw(gl);
 
     this.framebuffer = gl.createFramebuffer();
 
+    // quad, as in quadrilateral? I.e. drawing "points" via drawing 2 triangles (6 coordinate pairs)?
     this.quadBuffer = util.createBuffer(
       gl,
       new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
@@ -278,8 +322,10 @@ class Particles extends Layer {
     util.bindTexture(gl, data.tileBottomCenter.getTexture(gl), 8);
     util.bindTexture(gl, data.tileBottomRight.getTexture(gl), 9);
 
+    // positions
     gl.uniform1i(program.u_particles, 0);
 
+    // speeds
     gl.uniform1i(program.u_wind_top_left, 1);
     gl.uniform1i(program.u_wind_top_center, 2);
     gl.uniform1i(program.u_wind_top_right, 3);
@@ -317,7 +363,16 @@ class Particles extends Layer {
         const found = this.findAssociatedDataTiles(tile);
         if (!found) return;
 
-        this.draw(
+        // this.draw(
+        //   gl,
+        //   matrix,
+        //   this._particleTiles[tile],
+        //   tile.viewMatrix(2),
+        //   found
+        // );
+
+        // draw() is now embedded in drawScreen()
+        this.drawScreen(
           gl,
           matrix,
           this._particleTiles[tile],
@@ -328,9 +383,51 @@ class Particles extends Layer {
     }
   }
 
+  // NEW: attempt to overlay past screen state (particle tails)
+  drawScreen(gl, matrix, tile, offset, data) {
+    // const gl = this.gl;
+
+    // enable blending to support drawing on top of an existing background (e.g. a map)
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    //Remember that if the canvas and the texture are different sizes you'll need to call gl.viewport to render correctly
+    this.drawTexture(this.screenTexture, 1.0);
+    gl.disable(gl.BLEND);
+
+    // draw the screen into a temporary framebuffer to retain it as the background on the next frame
+    // what happens to screenTexture here? I don't see that it actually gets drawn to the frameBuffer 
+    util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+    this.draw(gl, matrix, tile, offset, data);
+
+    util.bindFramebuffer(gl, null); // this clears the frameBuffer so that we can draw to the canvas instead  
+
+    // save the current screen as the background for the next frame
+    const temp = this.backgroundTexture;
+    this.backgroundTexture = this.screenTexture;
+    this.screenTexture = temp;
+  }
+
+  // NEW: attempt to overlay past screen state (particle tails)
+  drawTexture(texture, opacity) {
+    const gl = this.gl;
+    const program = this.screenProgram;
+    gl.useProgram(program.program);
+
+    util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+    util.bindTexture(gl, texture, 2);
+    gl.uniform1i(program.u_screen, 2);
+    gl.uniform1f(program.u_opacity, opacity);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
   draw(gl, matrix, tile, offset, data) {
     const program = this.drawProgram;
     gl.useProgram(program.program);
+
     util.bindTexture(gl, tile.particleStateTexture0, 0);
     util.bindTexture(gl, data.tileTopLeft.getTexture(gl), 1);
     util.bindTexture(gl, data.tileTopCenter.getTexture(gl), 2);
