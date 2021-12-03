@@ -47,8 +47,8 @@ class Particles extends Layer {
       },
       options
     );
-    this.pixelToGridRatio = 20; // not sure how to interpret this
-    this.tileSize = 1024; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
+    this.pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
+    this.tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
     this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed

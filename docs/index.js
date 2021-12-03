@@ -14227,10 +14227,16 @@
 
 	  var tileCount = Math.pow( 2, practicalZoom );
 
-	  var top = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
-	  var bottom = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
+	  var top0 = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
+	  var bottom0 = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
 	  var left = Math.floor(((bounds.getWest() + 180) / 360) * tileCount);
 	  var right = Math.ceil(((bounds.getEast() + 180) / 360) * tileCount);
+
+	  var top = (Math.floor((1-Math.log(Math.tan(bounds.getNorth()*Math.PI/180) + 1/Math.cos(bounds.getNorth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
+	  var bottom = (Math.ceil((1-Math.log(Math.tan(bounds.getSouth()*Math.PI/180) + 1/Math.cos(bounds.getSouth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
+
+	  console.log(top0, bottom0, top, bottom);
+
 
 	  var tiles = [];
 	  for (var y = top; y < bottom; y++) {
@@ -14489,8 +14495,8 @@
 	      },
 	      options
 	    );
-	    this.pixelToGridRatio = 20; // not sure how to interpret this
-	    this.tileSize = 1024; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
+	    this.pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
+	    this.tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
 	    this.dropRate = 0.003; // how often the particles move to a random place
 	    this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed

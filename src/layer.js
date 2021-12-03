@@ -130,10 +130,14 @@ export default class Layer {
 
     const tileCount = 2 ** practicalZoom;
 
-    const top = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
-    const bottom = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
+    // const top = Math.floor(((90 - bounds.getNorth()) / 180) * tileCount);
+    // const bottom = Math.ceil(((90 - bounds.getSouth()) / 180) * tileCount);
     const left = Math.floor(((bounds.getWest() + 180) / 360) * tileCount);
     const right = Math.ceil(((bounds.getEast() + 180) / 360) * tileCount);
+
+    const top = (Math.floor((1-Math.log(Math.tan(bounds.getNorth()*Math.PI/180) + 1/Math.cos(bounds.getNorth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
+    const bottom = (Math.ceil((1-Math.log(Math.tan(bounds.getSouth()*Math.PI/180) + 1/Math.cos(bounds.getSouth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
+
 
     const tiles = [];
     for (let y = top; y < bottom; y++) {
