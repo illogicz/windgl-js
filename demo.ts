@@ -1,41 +1,51 @@
-import mapboxgl from "mapbox-gl";
+import * as mb from "mapbox-gl";
 import * as windGL from "./src";
+import { LayerConfig } from "./src/layer";
 
-mapboxgl.accessToken =
-  "pk.eyJ1IjoiYXN0cm9zYXQiLCJhIjoiY2o3YWtjNnJzMGR6ajM3b2FidmNwaDNsaSJ9.lwWi7kOiejlT0RbD7RxtmA";
 
-let mapContainer1 = document.getElementById("map1");
-let mapContainer2 = document.getElementById("map2");
+//mapboxgl.accessToken =
+//  "pk.eyJ1IjoiYXN0cm9zYXQiLCJhIjoiY2o3YWtjNnJzMGR6ajM3b2FidmNwaDNsaSJ9.lwWi7kOiejlT0RbD7RxtmA";
 
-let map1, map2;
+let mapContainer1 = document.getElementById("map1") as HTMLElement;
+let mapContainer2 = document.getElementById("map2") as HTMLElement;
 
-const configs = [
+let map1: mb.Map;
+let map2: mb.Map;
+
+
+type Config = {
+  style: string,
+  layers: LayerConfig[],
+  flyTo?: mb.FlyToOptions;
+}
+
+const configs: Config[] = [
   {
-      style: "mapbox://styles/global-data-viewer/cjtss3jfb05w71fmra13u4qqm",
-      layers: [
-          {
-              'id': 'currents-raster',
-              'type': 'raster',
-              'source': {
-                  'type': 'raster',
-                  'tiles': [
-                      'https://earthengine.googleapis.com/map/67fe0dbb33c4c98cf87870935747a8e4/{z}/{x}/{y}?token=11d35863e010fefb4a361bd239eebee7'
-                  ],
-                  'tileSize': 256
-              },
-              'paint': {},
-              'after': "waterway-label"
-          },
-          {
-              type: "particles",
-              properties: {
-                  "particle-color": "rgba(250, 250, 250, 0.5)"
-              }
-          }
-      ],
-      flyTo: {
-          zoom: 2
+    style: "mapbox://styles/global-data-viewer/cjtss3jfb05w71fmra13u4qqm",
+    layers: [
+      {
+        'id': 'currents-raster',
+        'type': 'raster',
+        'source': {
+          'type': 'raster',
+          'tiles': [
+            'https://earthengine.googleapis.com/map/67fe0dbb33c4c98cf87870935747a8e4/{z}/{x}/{y}?token=11d35863e010fefb4a361bd239eebee7'
+          ],
+          'tileSize': 256
+        },
+        'paint': {},
+        'after': "waterway-label"
+      },
+      {
+        type: "particles",
+        properties: {
+          "particle-color": "rgba(250, 250, 250, 0.5)"
+        }
       }
+    ],
+    flyTo: {
+      zoom: 2
+    }
   },
   {
     style: "mapbox://styles/mapbox/dark-v9",
@@ -161,32 +171,34 @@ const configs = [
   }
 ];
 
-function initializeConfig(container, { style, layers }) {
-  const map = new mapboxgl.Map({
+function initializeConfig(container: HTMLElement, { style, layers }: Config) {
+  const map = new mb.Map({
     container: container,
     style
   });
   map.on("load", () => {
     const source = windGL.source("glossis/tile.json");
-      layers.forEach((layer) => {
-          let { type, after, properties } = layer
-          if (windGL[type]) {
-              layer = windGL[type](
-                  Object.assign(
-                   {
-                       id: type,
-                       source
-                   },
-                      properties || {}
-                  )
-              );
-          }
-          if (after) {
-              map.addLayer(layer, after);
-          } else {
-              map.addLayer(layer)
-          }
-          
+
+    layers.forEach((layerConfig) => {
+      const { type, after, properties } = layerConfig;
+      let layer: any = layerConfig;
+      if ((windGL as any)[type]) {
+        layer = (windGL as any)[type](
+          Object.assign(
+            {
+              id: type,
+              source
+            },
+            properties || {}
+          )
+        );
+      }
+      if (after) {
+        map.addLayer(layer, after);
+      } else {
+        map.addLayer(layer)
+      }
+
     });
   });
   return map;
@@ -199,7 +211,7 @@ function nextConfig() {
   mapContainer2.style.transition = "left 1s";
   setTimeout(() => {
     if (configs[index].flyTo) {
-      map2.flyTo(configs[index].flyTo);
+      map2.flyTo(configs[index].flyTo!);
     }
     index = (index + 1) % configs.length;
     map1 && map1.remove();
@@ -219,4 +231,4 @@ map2 = initializeConfig(mapContainer2, configs[index]);
 
 nextConfig();
 
-document.getElementById("next").addEventListener("click", nextConfig);
+document.getElementById("next")!.addEventListener("click", nextConfig);

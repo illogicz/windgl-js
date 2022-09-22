@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.defaultInterpreterPath": "C:\\Python27\\python.exe",
+		"taskExplorer.pathToPython": "C:\\Python27\\python.exe"
+	}
+}

@@ -1,11 +1,35 @@
 import * as util from "./util";
-import Layer from "./layer";
+import Layer, { LayerConfig, LayerOptions } from "./layer";
+import type * as ss from "mapbox-gl/dist/style-spec";
+import type * as mb from "mapbox-gl";
 
 import {
   particleUpdate,
   particleDraw,
   screenDraw
 } from "./shaders/particles.glsl";
+import { Tile } from "./tileID";
+
+
+
+type ParticleTile = {
+  particleStateTexture0: WebGLTexture,
+  particleStateTexture1: WebGLTexture,
+  updated: boolean
+}
+
+type DataTile = {
+  matrix: Float32Array;
+  tileTopLeft: Tile;
+  tileTopCenter: Tile;
+  tileTopRight: Tile;
+  tileMiddleLeft: Tile;
+  tileMiddleCenter: Tile;
+  tileMiddleRight: Tile;
+  tileBottomLeft: Tile;
+  tileBottomCenter: Tile;
+  tileBottomRight: Tile;
+}
 
 /**
  * This layer simulates a particles system where the particles move according
@@ -21,7 +45,7 @@ import {
  *    and their final position is computed based on the map viewport.
  */
 class Particles extends Layer {
-  constructor(options) {
+  constructor(options: LayerOptions) {
     super(
       {
         "particle-color": {
@@ -44,19 +68,37 @@ class Particles extends Layer {
           },
           "property-type": "data-constant",
         },
-      },
+      } as any,
       options
     );
-    this.pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
-    this.tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
-
-    this.dropRate = 0.003; // how often the particles move to a random place
-    this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
-    this._numParticles = 128*128//65536;
-    this.fadeOpacity = 0.97; // how fast the particle trails fade on each frame
-    // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
-    this._particleTiles = {};
   }
+
+  updateProgram!: GlslProgram;
+  drawProgram!: GlslProgram;
+  screenProgram!: GlslProgram;
+
+  framebuffer: WebGLFramebuffer | null = null;
+  quadBuffer: WebGLBuffer | null = null;
+  nullTexture!: WebGLTexture;
+  nullTile?: { getTexture(): WebGLTexture };
+
+  private _randomParticleState!: Uint8Array;
+  particleIndexBuffer: WebGLBuffer | null = null;
+  backgroundTexture?: WebGLTexture;
+  screenTexture?: WebGLTexture;
+  particleStateResolution!: number;
+
+  particleSpeed!: number;
+
+  pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
+  tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
+
+  dropRate = 0.003; // how often the particles move to a random place
+  dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+  private _numParticles = 128 * 128//65536;
+  fadeOpacity = 0.97; // how fast the particle trails fade on each frame
+  // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
+  private _particleTiles: Record<string, ParticleTile> = {};
 
   initializeScreenTextures() {
     // textures to hold the screen state for the current and the last frame
@@ -87,7 +129,7 @@ class Particles extends Layer {
     });
   }
 
-  setParticleColor(expr) {
+  setParticleColor(expr: ss.StylePropertyExpression) {
     this.buildColorRamp(expr);
   }
 
@@ -127,22 +169,22 @@ class Particles extends Layer {
     // })
     // console.log('z x y', tx)
     // console.log(tiles.length)
-    Object.keys(this._particleTiles).forEach(tile => {
-      if (tiles.filter(t => t.toString() == tile).length === 0) {
+    Object.entries(this._particleTiles).forEach(([key, tile]) => {
+      if (tiles.filter(t => t.toString() === key).length === 0) {
         // cleanup
-        this.gl.deleteTexture(tile.particleStateTexture0);
+        this.gl.deleteTexture(tile.particleStateTexture0);  // EDIT ????
         this.gl.deleteTexture(tile.particleStateTexture1);
-        delete this._particleTiles[tile];
+        delete this._particleTiles[key];
       }
     });
     tiles.forEach((tile) => {
-      if (!this._particleTiles[tile]) {
-        this._particleTiles[tile] = this.initializeParticleTile();
+      if (!this._particleTiles[tile.toString()]) {
+        this._particleTiles[tile.toString()] = this.initializeParticleTile();
       }
     });
   }
 
-  initializeParticles(gl, count) {
+  initializeParticles(gl: WebGLRenderingContext, count: number) {
     const particleRes = (this.particleStateResolution = Math.ceil(
       Math.sqrt(count)
     ));
@@ -158,7 +200,7 @@ class Particles extends Layer {
     this.particleIndexBuffer = util.createBuffer(gl, particleIndices);
   }
 
-  initialize(map, gl) {
+  initialize(map: mb.Map, gl: WebGLRenderingContext) {
     this.updateProgram = particleUpdate(gl);
     this.drawProgram = particleDraw(gl);
     // NEW
@@ -188,7 +230,7 @@ class Particles extends Layer {
   }
 
   // This is a callback from mapbox for rendering into a texture
-  prerender(gl) {
+  prerender(gl: WebGLRenderingContext) {
     if (this.windData) {
       const blendingEnabled = gl.isEnabled(gl.BLEND);
       gl.disable(gl.BLEND);
@@ -196,12 +238,12 @@ class Particles extends Layer {
       tiles.forEach((tile) => {
         const found = this.findAssociatedDataTiles(tile);
         if (found) {
-          this.update(gl, this._particleTiles[tile], found);
-          this._particleTiles[tile].updated = true;
+          this.update(gl, this._particleTiles[tile.toString()], found);
+          this._particleTiles[tile.toString()].updated = true;
         }
       });
       if (blendingEnabled) gl.enable(gl.BLEND);
-      this.map.triggerRepaint();
+      this.map!.triggerRepaint();
     }
   }
 
@@ -209,8 +251,8 @@ class Particles extends Layer {
    * This method computes the ideal data tiles to support our particle tiles
    */
   computeLoadableTiles() {
-    const result = {};
-    const add = (tile) => (result[tile] = tile);
+    const result: Record<string, Tile> = {};
+    const add = (tile: Tile) => (result[tile.toString()] = tile);
     this.visibleParticleTiles().forEach((tileID) => {
       let t = tileID;
       let matrix = new window.DOMMatrix();
@@ -244,27 +286,27 @@ class Particles extends Layer {
     return Object.values(result);
   }
 
-  findAssociatedDataTiles(tileID) {
+  findAssociatedDataTiles(tileID: Tile): DataTile | undefined {
     let t = tileID;
     let found;
     let matrix = new window.DOMMatrix();
     while (!t.isRoot()) {
-      if ((found = this._tiles[t])) break;
+      if ((found = this._tiles[t.toString()])) break;
       const [x, y] = t.quadrant();
       matrix.translateSelf(0.5 * x, 0.5 * y);
       matrix.scaleSelf(0.5);
       t = t.parent();
     }
     if (!found) return;
-    const tileTopLeft = this._tiles[found.neighbor(-1, -1)];
-    const tileTopCenter = this._tiles[found.neighbor(0, -1)];
-    const tileTopRight = this._tiles[found.neighbor(1, -1)];
-    const tileMiddleLeft = this._tiles[found.neighbor(-1, 0)];
+    const tileTopLeft = this._tiles[found.neighbor(-1, -1).toString()];
+    const tileTopCenter = this._tiles[found.neighbor(0, -1).toString()];
+    const tileTopRight = this._tiles[found.neighbor(1, -1).toString()];
+    const tileMiddleLeft = this._tiles[found.neighbor(-1, 0).toString()];
     const tileMiddleCenter = found;
-    const tileMiddleRight = this._tiles[found.neighbor(1, 0)];
-    const tileBottomLeft = this._tiles[found.neighbor(-1, 1)];
-    const tileBottomCenter = this._tiles[found.neighbor(0, 1)];
-    const tileBottomRight = this._tiles[found.neighbor(1, 1)];
+    const tileMiddleRight = this._tiles[found.neighbor(1, 0).toString()];
+    const tileBottomLeft = this._tiles[found.neighbor(-1, 1).toString()];
+    const tileBottomCenter = this._tiles[found.neighbor(0, 1).toString()];
+    const tileBottomRight = this._tiles[found.neighbor(1, 1).toString()];
     matrix.translateSelf(-0.5, -0.5);
     matrix.scaleSelf(2, 2);
 
@@ -298,7 +340,7 @@ class Particles extends Layer {
     };
   }
 
-  update(gl, tile, data) {
+  update(gl: WebGLRenderingContext, tile: ParticleTile, data: DataTile) {
     util.bindFramebuffer(gl, this.framebuffer, tile.particleStateTexture1);
     gl.viewport(
       0,
@@ -312,15 +354,15 @@ class Particles extends Layer {
 
     util.bindTexture(gl, tile.particleStateTexture0, 0);
 
-    util.bindTexture(gl, data.tileTopLeft.getTexture(gl), 1);
-    util.bindTexture(gl, data.tileTopCenter.getTexture(gl), 2);
-    util.bindTexture(gl, data.tileTopRight.getTexture(gl), 3);
-    util.bindTexture(gl, data.tileMiddleLeft.getTexture(gl), 4);
-    util.bindTexture(gl, data.tileMiddleCenter.getTexture(gl), 5);
-    util.bindTexture(gl, data.tileMiddleRight.getTexture(gl), 6);
-    util.bindTexture(gl, data.tileBottomLeft.getTexture(gl), 7);
-    util.bindTexture(gl, data.tileBottomCenter.getTexture(gl), 8);
-    util.bindTexture(gl, data.tileBottomRight.getTexture(gl), 9);
+    util.bindTexture(gl, data.tileTopLeft.getTexture!(gl), 1);
+    util.bindTexture(gl, data.tileTopCenter.getTexture!(gl), 2);
+    util.bindTexture(gl, data.tileTopRight.getTexture!(gl), 3);
+    util.bindTexture(gl, data.tileMiddleLeft.getTexture!(gl), 4);
+    util.bindTexture(gl, data.tileMiddleCenter.getTexture!(gl), 5);
+    util.bindTexture(gl, data.tileMiddleRight.getTexture!(gl), 6);
+    util.bindTexture(gl, data.tileBottomLeft.getTexture!(gl), 7);
+    util.bindTexture(gl, data.tileBottomCenter.getTexture!(gl), 8);
+    util.bindTexture(gl, data.tileBottomRight.getTexture!(gl), 9);
 
     // positions
     gl.uniform1i(program.u_particles, 0);
@@ -336,7 +378,7 @@ class Particles extends Layer {
     gl.uniform1i(program.u_wind_bottom_center, 8);
     gl.uniform1i(program.u_wind_bottom_right, 9);
 
-    util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+    util.bindAttribute(gl, this.quadBuffer!, program.a_pos, 2);
 
     gl.uniform1f(program.u_rand_seed, Math.random());
     gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
@@ -357,7 +399,7 @@ class Particles extends Layer {
     tile.particleStateTexture1 = temp;
   }
 
-  render(gl, matrix) {
+  render(gl: WebGLRenderingContext, matrix: number[]) {
     if (this.windData) {
       this.visibleParticleTiles().forEach((tile) => {
         const found = this.findAssociatedDataTiles(tile);
@@ -375,7 +417,7 @@ class Particles extends Layer {
         this.drawScreen(
           gl,
           matrix,
-          this._particleTiles[tile],
+          this._particleTiles[tile.toString()],
           tile.viewMatrix(2),
           found
         );
@@ -384,14 +426,14 @@ class Particles extends Layer {
   }
 
   // NEW: attempt to overlay past screen state (particle tails)
-  drawScreen(gl, matrix, tile, offset, data) {
+  drawScreen(gl: WebGLRenderingContext, matrix: Float32List, tile: ParticleTile, offset: Float32List, data: DataTile) {
     // const gl = this.gl;
 
     // enable blending to support drawing on top of an existing background (e.g. a map)
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     //Remember that if the canvas and the texture are different sizes you'll need to call gl.viewport to render correctly
-    this.drawTexture(this.screenTexture, 1.0);
+    this.drawTexture(this.screenTexture!, 1.0);
     gl.disable(gl.BLEND);
 
     // draw the screen into a temporary framebuffer to retain it as the background on the next frame
@@ -399,7 +441,7 @@ class Particles extends Layer {
     util.bindFramebuffer(gl, this.framebuffer, this.screenTexture);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    this.drawTexture(this.backgroundTexture, this.fadeOpacity);
+    this.drawTexture(this.backgroundTexture!, this.fadeOpacity);
     this.draw(gl, matrix, tile, offset, data);
 
     util.bindFramebuffer(gl, null); // this clears the frameBuffer so that we can draw to the canvas instead  
@@ -411,12 +453,12 @@ class Particles extends Layer {
   }
 
   // NEW: attempt to overlay past screen state (particle tails)
-  drawTexture(texture, opacity) {
+  drawTexture(texture: WebGLTexture, opacity: number) {
     const gl = this.gl;
     const program = this.screenProgram;
     gl.useProgram(program.program);
 
-    util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+    util.bindAttribute(gl, this.quadBuffer!, program.a_pos, 2);
     util.bindTexture(gl, texture, 2);
     gl.uniform1i(program.u_screen, 2);
     gl.uniform1f(program.u_opacity, opacity);
@@ -424,23 +466,24 @@ class Particles extends Layer {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
-  draw(gl, matrix, tile, offset, data) {
+  //draw(gl, matrix, tile, offset, data) {
+  protected draw(gl: WebGLRenderingContext, matrix: Float32List, tile: ParticleTile, offset: Float32List, data: DataTile) {
     const program = this.drawProgram;
     gl.useProgram(program.program);
 
     util.bindTexture(gl, tile.particleStateTexture0, 0);
-    util.bindTexture(gl, data.tileTopLeft.getTexture(gl), 1);
-    util.bindTexture(gl, data.tileTopCenter.getTexture(gl), 2);
-    util.bindTexture(gl, data.tileTopRight.getTexture(gl), 3);
-    util.bindTexture(gl, data.tileMiddleLeft.getTexture(gl), 4);
-    util.bindTexture(gl, data.tileMiddleCenter.getTexture(gl), 5);
-    util.bindTexture(gl, data.tileMiddleRight.getTexture(gl), 6);
-    util.bindTexture(gl, data.tileBottomLeft.getTexture(gl), 7);
-    util.bindTexture(gl, data.tileBottomCenter.getTexture(gl), 8);
-    util.bindTexture(gl, data.tileBottomRight.getTexture(gl), 9);
-    util.bindTexture(gl, this.colorRampTexture, 10);
+    util.bindTexture(gl, data.tileTopLeft.getTexture!(gl), 1);
+    util.bindTexture(gl, data.tileTopCenter.getTexture!(gl), 2);
+    util.bindTexture(gl, data.tileTopRight.getTexture!(gl), 3);
+    util.bindTexture(gl, data.tileMiddleLeft.getTexture!(gl), 4);
+    util.bindTexture(gl, data.tileMiddleCenter.getTexture!(gl), 5);
+    util.bindTexture(gl, data.tileMiddleRight.getTexture!(gl), 6);
+    util.bindTexture(gl, data.tileBottomLeft.getTexture!(gl), 7);
+    util.bindTexture(gl, data.tileBottomCenter.getTexture!(gl), 8);
+    util.bindTexture(gl, data.tileBottomRight.getTexture!(gl), 9);
+    util.bindTexture(gl, this.colorRampTexture!, 10);
 
-    util.bindAttribute(gl, this.particleIndexBuffer, program.a_index, 1);
+    util.bindAttribute(gl, this.particleIndexBuffer!, program.a_index, 1);
 
     gl.uniform1i(program.u_particles, 0);
     gl.uniform1i(program.u_wind_top_left, 1);
@@ -460,7 +503,7 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(
       program.u_offset_inverse,
       false,
-      util.matrixInverse(offset)
+      util.matrixInverse(Array.from(offset))
     );
 
     gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
@@ -474,4 +517,4 @@ class Particles extends Layer {
   }
 }
 
-export default (options) => new Particles(options);
+export default (options: LayerOptions) => new Particles(options);

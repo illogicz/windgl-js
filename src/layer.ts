@@ -1,36 +1,73 @@
 import * as util from "./util";
 import { expression } from "mapbox-gl/dist/style-spec";
-import tileID from "./tileID";
+import tileID, { Tile } from "./tileID";
+import type * as ss from "mapbox-gl/dist/style-spec";
+import type { WindSource, WindSourceSpec } from "./source";
+import type * as mb from "mapbox-gl";
+//import type { mat4 } from 'gl-matrix';
+
+
+type PropertySpec = Record<string, ss.StylePropertySpecification & {
+  //default: any;
+  //[k:keyof ss.LayerSpecification]: any;
+}>
+
+export type LayerConfig = (ss.LayerSpecification | (Omit<ss.LayerSpecification, "type"> & { type: "arrow" | "particles" | "sampleFill"; })) & {
+  [k: string]: any;
+  after?: string,
+  properties?: { [k: string]: any; };
+  source?: any;
+}
+
+export type LayerOptions = ss.LayerSpecification & {
+  source?: any;
+}
 
 /**
  * This is an abstract base class that handles most of the mapbox specific
  * stuff as well as a lot of the bookkeeping.
  */
-export default class Layer {
-  constructor(propertySpec, { id, source, ...options }) {
+export default abstract class Layer implements mb.CustomLayerInterface {
+  constructor(propertySpec: PropertySpec, { id, source, ...options }: LayerOptions) {
     this.id = id;
     this.type = "custom";
     this.renderingMode = "2d";
     this.source = source;
     this.propertySpec = propertySpec;
-
-    this._zoomUpdatable = {};
-    this._propsOnInit = {};
-    this.tileZoomOffset = 0;
-    this._tiles = {};
-
     this.source.metadata(this.setWind.bind(this));
 
     // This will initialize the default values
     Object.keys(this.propertySpec).forEach(spec => {
-      this.setProperty(spec, options[spec] || this.propertySpec[spec].default);
+      this.setProperty(spec, (options as any)[spec] || this.propertySpec[spec].default);
     });
   }
+
+  //@ts-ignore
+  gl: WebGLRenderingContext;
+  map?: mb.Map;
+
+  id: string;
+  type: "custom";
+  renderingMode?: "2d" | "3d" | undefined;
+  prerender?(gl: WebGLRenderingContext, matrix: number[]): void;
+  pixelToGridRatio = 1;
+  propertySpec: PropertySpec;
+  source: WindSource;
+  colorRampTexture?: WebGLTexture;
+
+  //@ts-ignore
+  windData: WindSourceSpec;
+  //tileZoomOffset: number;
+  private _zoomUpdatable: Record<string, ss.CameraExpression | ss.CompositeExpression> = {};
+  private _propsOnInit: Record<string, ss.ConstantExpression | ss.SourceExpression> = {};
+  protected _tiles: Record<string, Tile> = {};
+
+  //[prop: string]: any;
 
   /**
    * Update a property using a mapbox style epxression.
    */
-  setProperty(prop, value) {
+  setProperty(prop: string, value: unknown) {
     const spec = this.propertySpec[prop];
     if (!spec) return;
     const expr = expression.createPropertyExpression(value, spec);
@@ -47,7 +84,7 @@ export default class Layer {
           }
       }
     } else {
-      throw new Error(expr.value);
+      throw new Error(expr.value as any);
     }
   }
 
@@ -55,17 +92,20 @@ export default class Layer {
   // Either as a camelCased instance variable or by declaring a
   // a setter function which will recieve the *expression* and
   // it is their responsibility to evaluate it.
-  _setPropertyValue(prop, value) {
+  _setPropertyValue(prop: string, value: ss.ConstantExpression | ss.SourceExpression | ss.CameraExpression | ss.CompositeExpression) {
     const name = prop
       .split("-")
       .map(a => a[0].toUpperCase() + a.slice(1))
       .join("");
     const setterName = "set" + name;
+    //@ts-ignore
     if (this[setterName]) {
+      //@ts-ignore
       this[setterName](value);
     } else {
+      //@ts-ignore
       this[name[0].toLowerCase() + name.slice(1)] = value.evaluate({
-        zoom: this.map && this.map.getZoom()
+        zoom: (this.map && this.map.getZoom()) ?? 1 // EDIT "?? 1"
       });
     }
   }
@@ -77,12 +117,12 @@ export default class Layer {
   // 256 possible speed values in the range of the dataset and storing
   // those in a 16x16 texture. The shaders than can simply pick the appropriate
   // pixel to determine the correct color.
-  buildColorRamp(expr) {
+  buildColorRamp(expr: ss.StylePropertyExpression) {
     const colors = new Uint8Array(256 * 4);
     let range = 1;
     if (expr.kind === "source" || expr.kind === "composite") {
-      const u = this.windData.uMax - this.windData.uMin;
-      const v = this.windData.vMax - this.windData.vMin;
+      const u = this.windData!.uMax - this.windData!.uMin;
+      const v = this.windData!.vMax - this.windData!.vMin;
 
       range = Math.sqrt(u * u + v * v);
     }
@@ -90,9 +130,10 @@ export default class Layer {
     for (let i = 0; i < 256; i++) {
       const color = expr.evaluate(
         expr.kind === "constant" || expr.kind === "source"
-          ? {}
-          : { zoom: this.map.zoom },
-        { properties: { speed: (i / 255) * range } }
+          ? {} as ss.GlobalProperties
+          //: { zoom: this.map.zoom },
+          : { zoom: this.map!.getZoom() }, // ?
+        { properties: { speed: (i / 255) * range } } as unknown as ss.Feature
       );
       colors[i * 4 + 0] = color.r * 255;
       colors[i * 4 + 1] = color.g * 255;
@@ -100,8 +141,8 @@ export default class Layer {
       colors[i * 4 + 3] = color.a * 255;
     }
     this.colorRampTexture = util.createTexture(
-      this.gl,
-      this.gl.LINEAR,
+      this.gl!,
+      this.gl!.LINEAR,
       colors,
       16,
       16
@@ -109,7 +150,7 @@ export default class Layer {
   }
 
   // data management
-  setWind(windData) {
+  setWind(windData: WindSourceSpec) {
     this.windData = windData;
     if (this.map) {
       this._initialize();
@@ -117,8 +158,8 @@ export default class Layer {
     }
   }
 
-  computeVisibleTiles(pixelToGridRatio, tileSize, { maxzoom, minzoom }) {
-    const pixels = this.gl.canvas.height * this.map.getZoom();
+  computeVisibleTiles(pixelToGridRatio: number, tileSize: number, { maxzoom, minzoom }: { maxzoom: number, minzoom: number; }) {
+    const pixels = this.gl!.canvas.height * this.map!.getZoom();
     const actualZoom = pixels / (tileSize * pixelToGridRatio);
 
     const practicalZoom = Math.max(
@@ -126,7 +167,7 @@ export default class Layer {
       minzoom
     );
 
-    const bounds = this.map.getBounds();
+    const bounds = this.map!.getBounds(); // +!
 
     const tileCount = 2 ** practicalZoom;
 
@@ -135,8 +176,8 @@ export default class Layer {
     const left = Math.floor(((bounds.getWest() + 180) / 360) * tileCount);
     const right = Math.ceil(((bounds.getEast() + 180) / 360) * tileCount);
 
-    const top = (Math.floor((1-Math.log(Math.tan(bounds.getNorth()*Math.PI/180) + 1/Math.cos(bounds.getNorth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
-    const bottom = (Math.ceil((1-Math.log(Math.tan(bounds.getSouth()*Math.PI/180) + 1/Math.cos(bounds.getSouth()*Math.PI/180))/Math.PI)/2 *Math.pow(2,practicalZoom)));
+    const top = (Math.floor((1 - Math.log(Math.tan(bounds.getNorth() * Math.PI / 180) + 1 / Math.cos(bounds.getNorth() * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, practicalZoom)));
+    const bottom = (Math.ceil((1 - Math.log(Math.tan(bounds.getSouth() * Math.PI / 180) + 1 / Math.cos(bounds.getSouth() * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, practicalZoom)));
 
 
     const tiles = [];
@@ -154,15 +195,15 @@ export default class Layer {
     return tiles;
   }
 
-  tileLoaded(tile) {
-    this._tiles[tile] = tile;
-    this.map.triggerRepaint();
+  tileLoaded(tile: Tile) {
+    this._tiles[tile.toString()] = tile;
+    this.map!.triggerRepaint();
   }
 
   // lifecycle
 
   // called by mapboxgl
-  onAdd(map, gl) {
+  onAdd(map: mb.Map, gl: WebGLRenderingContext) {
     this.gl = gl;
     this.map = map;
     if (this.windData) {
@@ -170,19 +211,22 @@ export default class Layer {
     }
   }
 
+  protected abstract initialize(map: mb.Map, gl: WebGLRenderingContext): void;
+  protected abstract draw(gl: WebGLRenderingContext, matrix: Float32List, tile: any, offset: Float32List, data?: any): void;
+
   // This will be called when we have everything we need:
   // the gl context and the data
   // we will call child classes `initialize` as well as do a bunch of
   // stuff to get the properties in order
   _initialize() {
-    this.initialize(this.map, this.gl);
+    this.initialize(this.map!, this.gl);
     Object.entries(this._propsOnInit).forEach(([k, v]) => {
       this._setPropertyValue(k, v);
     });
     this._propsOnInit = {};
     this.zoom();
-    this.map.on("zoom", this.zoom.bind(this));
-    this.map.on("move", this.move.bind(this));
+    this.map!.on("zoom", this.zoom.bind(this));
+    this.map!.on("move", this.move.bind(this));
   }
 
   // Most properties allow zoom dependent styling. Here we update those.
@@ -197,36 +241,37 @@ export default class Layer {
   computeLoadableTiles() {
     return this.computeVisibleTiles(
       this.pixelToGridRatio,
-      Math.min(this.windData.width, this.windData.height),
-      this.windData
+      Math.min(this.windData!.width, this.windData!.height),
+      this.windData!
     );
   }
 
   move() {
     const tiles = this.computeLoadableTiles();
     tiles.forEach(tile => {
-      if (!this._tiles[tile]) {
+      if (!this._tiles[tile.toString()]) {
         this.source.loadTile(tile, this.tileLoaded.bind(this));
       }
     });
   }
 
   // This is called when the map is destroyed or the gl context lost.
-  onRemove(map) {
+  onRemove(map: mb.Map) {
+    //@ts-ignore
     delete this.gl;
     delete this.map;
     map.off("zoom", this.zoom);
   }
 
   // called by mapboxgl
-  render(gl, matrix) {
+  render(gl: WebGLRenderingContext, matrix: number[]) {
     if (this.windData) {
       this.computeVisibleTiles(
-        this.pixelToGridRatio,
+        this.pixelToGridRatio, // cannot find where this is defined
         Math.min(this.windData.width, this.windData.height),
         this.windData
       ).forEach(tile => {
-        const texture = this._tiles[tile];
+        const texture = this._tiles[tile.toString()];
         if (!texture) return;
         this.draw(gl, matrix, texture, tile.viewMatrix());
       });
