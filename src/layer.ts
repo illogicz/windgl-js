@@ -1,25 +1,24 @@
 import * as util from "./util";
-import { expression } from "mapbox-gl/dist/style-spec";
 import tileID, { Tile } from "./tileID";
-import type * as ss from "mapbox-gl/dist/style-spec";
+import styleSpec from "@maplibre/maplibre-gl-style-spec"
+import type * as mb from "maplibre-gl"
+import type { mat4 } from "gl-matrix";
 import type { WindSource, WindSourceSpec } from "./source";
-import type * as mb from "mapbox-gl";
 //import type { mat4 } from 'gl-matrix';
 
-
-type PropertySpec = Record<string, ss.StylePropertySpecification & {
+type PropertySpec = Record<string, mb.StylePropertySpecification & {
   //default: any;
   //[k:keyof ss.LayerSpecification]: any;
 }>
 
-export type LayerConfig = (ss.LayerSpecification | (Omit<ss.LayerSpecification, "type"> & { type: "arrow" | "particles" | "sampleFill"; })) & {
+export type LayerConfig = (mb.LayerSpecification | (Omit<mb.LayerSpecification, "type"> & { type: "arrow" | "particles" | "sampleFill"; })) & {
   [k: string]: any;
   after?: string,
   properties?: { [k: string]: any; };
   source?: any;
 }
 
-export type LayerOptions = ss.LayerSpecification & {
+export type LayerOptions = mb.LayerSpecification & {
   source?: any;
 }
 
@@ -49,7 +48,7 @@ export default abstract class Layer implements mb.CustomLayerInterface {
   id: string;
   type: "custom";
   renderingMode?: "2d" | "3d" | undefined;
-  prerender?(gl: WebGLRenderingContext, matrix: number[]): void;
+  prerender?(gl: WebGLRenderingContext, matrix: mat4): void;
   pixelToGridRatio = 1;
   propertySpec: PropertySpec;
   source: WindSource;
@@ -58,8 +57,8 @@ export default abstract class Layer implements mb.CustomLayerInterface {
   //@ts-ignore
   windData: WindSourceSpec;
   //tileZoomOffset: number;
-  private _zoomUpdatable: Record<string, ss.CameraExpression | ss.CompositeExpression> = {};
-  private _propsOnInit: Record<string, ss.ConstantExpression | ss.SourceExpression> = {};
+  private _zoomUpdatable: Record<string, mb.CameraExpression | mb.CompositeExpression> = {};
+  private _propsOnInit: Record<string, mb.ConstantExpression | mb.SourceExpression> = {};
   protected _tiles: Record<string, Tile> = {};
 
   //[prop: string]: any;
@@ -70,7 +69,7 @@ export default abstract class Layer implements mb.CustomLayerInterface {
   setProperty(prop: string, value: unknown) {
     const spec = this.propertySpec[prop];
     if (!spec) return;
-    const expr = expression.createPropertyExpression(value, spec);
+    const expr = styleSpec.expression.createPropertyExpression(value, spec);
     if (expr.result === "success") {
       switch (expr.value.kind) {
         case "camera":
@@ -92,7 +91,7 @@ export default abstract class Layer implements mb.CustomLayerInterface {
   // Either as a camelCased instance variable or by declaring a
   // a setter function which will recieve the *expression* and
   // it is their responsibility to evaluate it.
-  _setPropertyValue(prop: string, value: ss.ConstantExpression | ss.SourceExpression | ss.CameraExpression | ss.CompositeExpression) {
+  _setPropertyValue(prop: string, value: mb.ConstantExpression | mb.SourceExpression | mb.CameraExpression | mb.CompositeExpression) {
     const name = prop
       .split("-")
       .map(a => a[0].toUpperCase() + a.slice(1))
@@ -117,7 +116,7 @@ export default abstract class Layer implements mb.CustomLayerInterface {
   // 256 possible speed values in the range of the dataset and storing
   // those in a 16x16 texture. The shaders than can simply pick the appropriate
   // pixel to determine the correct color.
-  buildColorRamp(expr: ss.StylePropertyExpression) {
+  buildColorRamp(expr: mb.StylePropertyExpression) {
     const colors = new Uint8Array(256 * 4);
     let range = 1;
     if (expr.kind === "source" || expr.kind === "composite") {
@@ -130,10 +129,10 @@ export default abstract class Layer implements mb.CustomLayerInterface {
     for (let i = 0; i < 256; i++) {
       const color = expr.evaluate(
         expr.kind === "constant" || expr.kind === "source"
-          ? {} as ss.GlobalProperties
+          ? {} as mb.GlobalProperties
           //: { zoom: this.map.zoom },
           : { zoom: this.map!.getZoom() }, // ?
-        { properties: { speed: (i / 255) * range } } as unknown as ss.Feature
+        { properties: { speed: (i / 255) * range } } as unknown as mb.Feature
       );
       colors[i * 4 + 0] = color.r * 255;
       colors[i * 4 + 1] = color.g * 255;
@@ -180,7 +179,7 @@ export default abstract class Layer implements mb.CustomLayerInterface {
     const bottom = (Math.ceil((1 - Math.log(Math.tan(bounds.getSouth() * Math.PI / 180) + 1 / Math.cos(bounds.getSouth() * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, practicalZoom)));
 
 
-    const tiles = [];
+    const tiles: Tile[] = [];
     for (let y = top; y < bottom; y++) {
       for (let x = left; x < right; x++) {
         let properX = x % tileCount;
@@ -264,7 +263,7 @@ export default abstract class Layer implements mb.CustomLayerInterface {
   }
 
   // called by mapboxgl
-  render(gl: WebGLRenderingContext, matrix: number[]) {
+  render(gl: WebGLRenderingContext, matrix: mat4) {
     if (this.windData) {
       this.computeVisibleTiles(
         this.pixelToGridRatio, // cannot find where this is defined

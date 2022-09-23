@@ -1,8 +1,7 @@
 import * as util from "./util";
 import Layer, { LayerConfig, LayerOptions } from "./layer";
 import { arrow } from "./shaders/arrow.glsl";
-import type * as mb from "mapbox-gl";
-import type * as ss from "mapbox-gl/dist/style-spec";
+import type * as mb from "maplibre-gl";
 import { Tile } from "./tileID";
 
 
@@ -63,7 +62,7 @@ class Arrows extends Layer {
     this.initializeGrid();
   }
 
-  setArrowColor(expr: ss.StylePropertyExpression) {
+  setArrowColor(expr: mb.StylePropertyExpression) {
     this.buildColorRamp(expr);
   }
 

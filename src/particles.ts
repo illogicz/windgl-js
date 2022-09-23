@@ -1,7 +1,7 @@
 import * as util from "./util";
 import Layer, { LayerConfig, LayerOptions } from "./layer";
-import type * as ss from "mapbox-gl/dist/style-spec";
-import type * as mb from "mapbox-gl";
+import type * as mb from "maplibre-gl";
+import type { mat4 } from "gl-matrix";
 
 import {
   particleUpdate,
@@ -124,12 +124,12 @@ class Particles extends Layer {
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
-      minzoom: 3, // TODO: changed from 0 for testing
+      minzoom: 0, // TODO: changed from 0 for testing
       maxzoom: this.windData.maxzoom + 5 // (3) how much overzoom to allow?
     });
   }
 
-  setParticleColor(expr: ss.StylePropertyExpression) {
+  setParticleColor(expr: mb.StylePropertyExpression) {
     this.buildColorRamp(expr);
   }
 
@@ -399,7 +399,7 @@ class Particles extends Layer {
     tile.particleStateTexture1 = temp;
   }
 
-  render(gl: WebGLRenderingContext, matrix: number[]) {
+  render(gl: WebGLRenderingContext, matrix: mat4) {
     if (this.windData) {
       this.visibleParticleTiles().forEach((tile) => {
         const found = this.findAssociatedDataTiles(tile);

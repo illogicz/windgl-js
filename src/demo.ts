@@ -1,6 +1,6 @@
-import * as mb from "mapbox-gl";
-import * as windGL from "./src";
-import { LayerConfig } from "./src/layer";
+import maplibregl from "maplibre-gl";
+import * as windGL from ".";
+import { LayerConfig } from "./layer";
 
 
 //mapboxgl.accessToken =
@@ -9,14 +9,14 @@ import { LayerConfig } from "./src/layer";
 let mapContainer1 = document.getElementById("map1") as HTMLElement;
 let mapContainer2 = document.getElementById("map2") as HTMLElement;
 
-let map1: mb.Map;
-let map2: mb.Map;
+let map1: maplibregl.Map;
+let map2: maplibregl.Map;
 
 
 type Config = {
   style: string,
   layers: LayerConfig[],
-  flyTo?: mb.FlyToOptions;
+  flyTo?: maplibregl.FlyToOptions;
 }
 
 const configs: Config[] = [
@@ -41,7 +41,7 @@ const configs: Config[] = [
         properties: {
           "particle-color": "rgba(250, 250, 250, 0.5)"
         }
-      }
+      } as any
     ],
     flyTo: {
       zoom: 2
@@ -77,7 +77,7 @@ const configs: Config[] = [
             "#d53e4f"
           ]
         }
-      }
+      } as any
     ],
     flyTo: { pitch: 30, zoom: 2.5, center: [0, 45] }
   },
@@ -99,7 +99,7 @@ const configs: Config[] = [
           ],
           "particle-color": "rgba(60, 60, 90, 0.9)"
         }
-      }
+      } as any
     ],
     flyTo: { zoom: 2, center: [50, -10] }
   },
@@ -172,7 +172,7 @@ const configs: Config[] = [
 ];
 
 function initializeConfig(container: HTMLElement, { style, layers }: Config) {
-  const map = new mb.Map({
+  const map = new maplibregl.Map({
     container: container,
     style
   });

@@ -1,10 +1,10 @@
 import * as util from "./util";
 import Layer, { LayerConfig, LayerOptions } from "./layer";
-import type * as ss from "mapbox-gl/dist/style-spec";
+import type { mat4 } from "gl-matrix";
 
 import { sampleFill } from "./shaders/sampleFill.glsl";
 import { Tile } from "./tileID";
-import type * as mb from "mapbox-gl";
+import type * as mb from "maplibre-gl";
 
 class SampleFill extends Layer {
   constructor(options: LayerOptions) {
@@ -70,7 +70,7 @@ class SampleFill extends Layer {
     );
   }
 
-  setSampleFillColor(expr: ss.StylePropertyExpression) {
+  setSampleFillColor(expr: mb.StylePropertyExpression) {
     this.buildColorRamp(expr);
   }
 

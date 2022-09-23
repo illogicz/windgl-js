@@ -149,22 +149,12 @@ const plugins = [
   resolve(),
   commonjs({
     namedExports: {
-      "node_modules/mapbox-gl/dist/style-spec/index.js": ["expression"]
+      "node_modules/mablibre-gl/dist/style-spec/index.js": ["styleSpec", "expression"]
     }
   }),
 ];
 
 export default [
-  // {
-  //   input: "demo.ts",
-  //   output: [{ file: "docs/index.js", format: "iife" }],
-  //   plugins
-  // },
-  {
-    input: "dist/esm/index.js",
-    output: [{ file: pkg.browser, format: "umd", name: "windGL" }],
-    plugins
-  },
   {
     input: "dist/esm/index.js",
     output: [
@@ -177,7 +167,7 @@ export default [
         format: "es"
       }
     ],
-    external: ["mapbox-gl/dist/style-spec"],
+    external: ["maplibre-gl/dist/style-spec"],
     plugins
   }
 ];
