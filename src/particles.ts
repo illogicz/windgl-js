@@ -6,6 +6,7 @@ import type { mat4 } from "gl-matrix";
 import {
   particleUpdate,
   particleDraw,
+  //  screenDraw
 } from "./shaders/particles.glsl";
 import { Tile } from "./tileID";
 
@@ -14,8 +15,8 @@ import { Tile } from "./tileID";
 type ParticleTile = {
   particleStateTexture0: WebGLTexture,
   particleStateTexture1: WebGLTexture,
-  updated: boolean
-}
+  updated: boolean;
+};
 
 type DataTile = {
   matrix: Float32Array;
@@ -28,7 +29,7 @@ type DataTile = {
   tileBottomLeft: Tile;
   tileBottomCenter: Tile;
   tileBottomRight: Tile;
-}
+};
 
 /**
  * This layer simulates a particles system where the particles move according
@@ -70,14 +71,39 @@ class Particles extends Layer {
       } as any,
       options
     );
-
-  // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
   }
+
+  updateProgram!: GlslProgram;
+  drawProgram!: GlslProgram;
+  screenProgram!: GlslProgram;
+
+  framebuffer: WebGLFramebuffer | null = null;
+  quadBuffer: WebGLBuffer | null = null;
+  nullTexture!: WebGLTexture;
+  nullTile?: { getTexture(): WebGLTexture; };
+
+  private _randomParticleState!: Uint8Array;
+  particleIndexBuffer: WebGLBuffer | null = null;
+  backgroundTexture?: WebGLTexture;
+  screenTexture?: WebGLTexture;
+  particleStateResolution!: number;
+
+  particleSpeed!: number;
+
+  pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
+  tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
+
+  dropRate = 0.003; // how often the particles move to a random place
+  dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+  private _numParticles = 128 * 128;//65536;
+  fadeOpacity = 0.97; // how fast the particle trails fade on each frame
+  // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
+  private _particleTiles: Record<string, ParticleTile> = {};
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
-      minzoom: 0,
-      maxzoom: this.windData.maxzoom + 3 // how much overzoom to allow?
+      minzoom: 0, // 2
+      maxzoom: this.windData.maxzoom + 3 // 5
     });
   }
 
@@ -106,14 +132,19 @@ class Particles extends Layer {
 
   move() {
     super.move();
-    this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles. Maybe need cleanup like for particle state below?
+    //this.initializeScreenTextures(); // try scoping only to canvas rather than all loaded tiles. Maybe need cleanup like for particle state below?
     const tiles = this.visibleParticleTiles();
-    Object.keys(this._particleTiles).forEach(tile => {
-      if (tiles.filter(t => t.toString() == tile).length === 0) {
+
+    Object.entries(this._particleTiles).forEach(([key, tile]) => {
+      if (tiles.filter(t => t.toString() == tile.toString()).length === 0) {
+
+        // Object.keys in original, properties would be undefined??
+        // And it breaks if we actually fix it.
+
         // cleanup
-        this.gl.deleteTexture(tile.particleStateTexture0);
-        this.gl.deleteTexture(tile.particleStateTexture1);
-        delete this._particleTiles[tile];
+        //this.gl.deleteTexture(tile.particleStateTexture0);
+        //this.gl.deleteTexture(tile.particleStateTexture1);
+        delete this._particleTiles[tile.toString()];
       }
     });
     tiles.forEach((tile) => {
@@ -327,6 +358,7 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.flush();
 
     // swap the particle state textures so the new one becomes the current one
     const temp = tile.particleStateTexture0;
@@ -398,6 +430,7 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.POINTS, 0, this._numParticles);
+    gl.flush();
   }
 }
 
