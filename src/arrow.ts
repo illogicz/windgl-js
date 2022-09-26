@@ -1,9 +1,12 @@
 import * as util from "./util";
-import Layer from "./layer";
+import Layer, { LayerConfig, LayerOptions } from "./layer";
 import { arrow } from "./shaders/arrow.glsl";
+import type * as mb from "maplibre-gl";
+import { Tile } from "./tileID";
+
 
 class Arrows extends Layer {
-  constructor(options) {
+  constructor(options: LayerOptions) {
     super(
       {
         "arrow-min-size": {
@@ -34,18 +37,32 @@ class Arrows extends Layer {
           },
           "property-type": "data-constant"
         }
-      },
+      } as any,
       options
     );
     this.pixelToGridRatio = 25;
   }
 
-  initialize(map, gl) {
+  private arrowsProgram!: GlslProgram;
+  private cols!: number;
+  private rows!: number;
+  private positionsBuffer: WebGLBuffer | null = null;
+  private cornerBuffer: WebGLBuffer | null = null;
+  protected arrowMinSize!: number;
+  protected arrowHaloColor!: {
+    a: number;
+    r: number;
+    g: number;
+    b: number;
+  }
+
+
+  initialize(map: mb.Map, gl: WebGLRenderingContext) {
     this.arrowsProgram = arrow(gl);
     this.initializeGrid();
   }
 
-  setArrowColor(expr) {
+  setArrowColor(expr: mb.StylePropertyExpression) {
     this.buildColorRamp(expr);
   }
 
@@ -72,7 +89,7 @@ class Arrows extends Layer {
    *
    * NB: Returns [cols, rows] as that is [x,y] which makes more sense.
    */
-  computeDimensions(gl, map, minSize, cols, rows) {
+  computeDimensions(gl: WebGLRenderingContext, map: mb.Map, minSize: number, cols: number, rows: number) {
     // If we are rendering multiple copies of the world, then we only care
     // about the square in the middle, as other code will take care of the
     // aditional coppies.
@@ -91,21 +108,21 @@ class Arrows extends Layer {
     ];
   }
 
-  draw(gl, matrix, tile, offset) {
+  draw(gl: WebGLRenderingContext, matrix: number[], tile: Tile, offset: number[]) {
     const program = this.arrowsProgram;
     gl.useProgram(program.program);
 
-    util.bindAttribute(gl, this.positionsBuffer, program.a_pos, 2);
-    util.bindAttribute(gl, this.cornerBuffer, program.a_corner, 2);
+    util.bindAttribute(gl, this.positionsBuffer!, program.a_pos, 2);
+    util.bindAttribute(gl, this.cornerBuffer!, program.a_corner, 2);
 
-    util.bindTexture(gl, tile.getTexture(gl), 0);
-    util.bindTexture(gl, this.colorRampTexture, 2);
+    util.bindTexture(gl, tile.getTexture!(gl), 0);
+    util.bindTexture(gl, this.colorRampTexture!, 2);
 
     gl.uniform1i(program.u_wind, 0);
     gl.uniform1i(program.u_color_ramp, 2);
     const [cols, rows] = this.computeDimensions(
       gl,
-      this.map,
+      this.map!,
       this.arrowMinSize,
       this.cols,
       this.rows
@@ -131,4 +148,4 @@ class Arrows extends Layer {
   }
 }
 
-export default options => new Arrows(options);
+export default (options: LayerOptions) => new Arrows(options);

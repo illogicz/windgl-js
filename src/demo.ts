@@ -1,15 +1,25 @@
-import mapboxgl from "mapbox-gl";
-import * as windGL from "./src";
+import maplibregl from "maplibre-gl";
+import * as windGL from ".";
+import { LayerConfig } from "./layer";
 
-mapboxgl.accessToken =
-  "pk.eyJ1IjoiYXN0cm9zYXQiLCJhIjoiY2o3YWtjNnJzMGR6ajM3b2FidmNwaDNsaSJ9.lwWi7kOiejlT0RbD7RxtmA";
 
-let mapContainer1 = document.getElementById("map1");
-let mapContainer2 = document.getElementById("map2");
+//mapboxgl.accessToken =
+//  "pk.eyJ1IjoiYXN0cm9zYXQiLCJhIjoiY2o3YWtjNnJzMGR6ajM3b2FidmNwaDNsaSJ9.lwWi7kOiejlT0RbD7RxtmA";
 
-let map1, map2;
+let mapContainer1 = document.getElementById("map1") as HTMLElement;
+let mapContainer2 = document.getElementById("map2") as HTMLElement;
 
-const configs = [
+let map1: maplibregl.Map;
+let map2: maplibregl.Map;
+
+
+type Config = {
+  style: string,
+  layers: LayerConfig[],
+  flyTo?: maplibregl.FlyToOptions;
+}
+
+const configs: Config[] = [
   {
     style: "mapbox://styles/mapbox/light-v9",
     layers: [
@@ -17,7 +27,7 @@ const configs = [
       { type: "particles", after: "waterway-label" }
     ],
     flyTo: { zoom: 2 }
-  },
+  } as any,
   {
     style: "mapbox://styles/mapbox/dark-v9",
     layers: [
@@ -48,7 +58,7 @@ const configs = [
             "#d53e4f"
           ]
         }
-      }
+      } as any
     ],
     flyTo: { pitch: 30, zoom: 2.5, center: [0, 45] }
   },
@@ -70,7 +80,7 @@ const configs = [
           ],
           "particle-color": "rgba(60, 60, 90, 0.9)"
         }
-      }
+      } as any
     ],
     flyTo: { zoom: 2, center: [50, -10] }
   },
@@ -142,24 +152,34 @@ const configs = [
   }
 ];
 
-function initializeConfig(container, { style, layers }) {
-  const map = new mapboxgl.Map({
+function initializeConfig(container: HTMLElement, { style, layers }: Config) {
+  const map = new maplibregl.Map({
     container: container,
     style
   });
   map.on("load", () => {
     const source = windGL.source("wind/2019031012/tile.json");
-    layers.forEach(({ type, after, properties }) => {
-      const layer = windGL[type](
-        Object.assign(
-          {
-            id: type,
-            source
-          },
-          properties || {}
-        )
-      );
-      map.addLayer(layer, after);
+
+    layers.forEach((layerConfig) => {
+      const { type, after, properties } = layerConfig;
+      let layer: any = layerConfig;
+      if ((windGL as any)[type]) {
+        layer = (windGL as any)[type](
+          Object.assign(
+            {
+              id: type,
+              source
+            },
+            properties || {}
+          )
+        );
+      }
+      if (after) {
+        map.addLayer(layer, after);
+      } else {
+        map.addLayer(layer)
+      }
+
     });
   });
   return map;
@@ -172,7 +192,7 @@ function nextConfig() {
   mapContainer2.style.transition = "left 1s";
   setTimeout(() => {
     if (configs[index].flyTo) {
-      map2.flyTo(configs[index].flyTo);
+      map2.flyTo(configs[index].flyTo!);
     }
     index = (index + 1) % configs.length;
     map1 && map1.remove();
@@ -192,4 +212,4 @@ map2 = initializeConfig(mapContainer2, configs[index]);
 
 nextConfig();
 
-document.getElementById("next").addEventListener("click", nextConfig);
+document.getElementById("next")!.addEventListener("click", nextConfig);

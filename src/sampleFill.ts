@@ -1,10 +1,13 @@
 import * as util from "./util";
-import Layer from "./layer";
+import Layer, { LayerConfig, LayerOptions } from "./layer";
+import type { mat4 } from "gl-matrix";
 
 import { sampleFill } from "./shaders/sampleFill.glsl";
+import { Tile } from "./tileID";
+import type * as mb from "maplibre-gl";
 
 class SampleFill extends Layer {
-  constructor(options) {
+  constructor(options: LayerOptions) {
     super(
       {
         "sample-fill-color": {
@@ -49,13 +52,16 @@ class SampleFill extends Layer {
           },
           "property-type": "data-constant"
         }
-      },
+      } as any,
       options
     );
     this.pixelToGridRatio = 20;
   }
+  backgroundProgram!: any; // GLSL program?;
+  quadBuffer: WebGLBuffer | null = null;
+  sampleOpacity!: number;
 
-  initialize(map, gl) {
+  initialize(map: mb.Map, gl: WebGLRenderingContext) {
     this.backgroundProgram = sampleFill(gl);
 
     this.quadBuffer = util.createBuffer(
@@ -64,19 +70,19 @@ class SampleFill extends Layer {
     );
   }
 
-  setSampleFillColor(expr) {
+  setSampleFillColor(expr: mb.StylePropertyExpression) {
     this.buildColorRamp(expr);
   }
 
-  draw(gl, matrix, tile, offset) {
+  draw(gl: WebGLRenderingContext, matrix: number[], tile: Tile, offset: number[]) {
     const opacity = this.sampleOpacity;
     const program = this.backgroundProgram;
     gl.useProgram(program.program);
 
-    util.bindAttribute(gl, this.quadBuffer, program.a_pos, 2);
+    util.bindAttribute(gl, this.quadBuffer!, program.a_pos, 2);
 
-    util.bindTexture(gl, tile.getTexture(gl), 0);
-    util.bindTexture(gl, this.colorRampTexture, 2);
+    util.bindTexture(gl, tile.getTexture!(gl), 0);
+    util.bindTexture(gl, this.colorRampTexture!, 2);
 
     gl.uniform1i(program.u_wind, 0);
     gl.uniform1i(program.u_color_ramp, 2);
@@ -97,4 +103,4 @@ class SampleFill extends Layer {
   }
 }
 
-export default options => new SampleFill(options);
+export default (options: LayerOptions) => new SampleFill(options);

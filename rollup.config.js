@@ -1,7 +1,9 @@
-import buble from "rollup-plugin-buble";
+//import buble from "rollup-plugin-buble";
 import pkg from "./package.json";
 import commonjs from "rollup-plugin-commonjs";
 import resolve from "rollup-plugin-node-resolve";
+import path from "path"
+import fs from "fs"
 
 import { compile as glslify } from "glslify";
 import * as GLSLX from "glslx";
@@ -117,41 +119,55 @@ function makeGLSL(userOptions = {}) {
   };
 }
 
+
+
+function copyFiles(from, to, overwrite = false) {
+	return {
+		name: 'copy-files',
+		generateBundle() {
+			const log = msg => console.log('\x1b[36m%s\x1b[0m', msg)
+			log(`copy files: ${from} → ${to}`)
+			fs.readdirSync(from).forEach(file => {
+				const fromFile = `${from}/${file}`
+				const toFile = `${to}/${file}`
+				if (fs.existsSync(toFile) && !overwrite)
+					return
+				log(`• ${fromFile} → ${toFile}`)
+				fs.copyFileSync(
+					path.resolve(fromFile),
+					path.resolve(toFile)
+				)
+			})
+		}
+	}
+}
+
 const plugins = [
-  makeGLSL({ include: "./src/shaders/*.glsl" }),
+  copyFiles("./src/shaders", "./dist/esm/shaders"),
+  copyFiles("./src/typings", "./dist/types"),
+  makeGLSL({ include: "./dist/esm/shaders/*.glsl" }),
   resolve(),
   commonjs({
-    namedExports: {
-      "node_modules/mapbox-gl/dist/style-spec/index.js": ["expression"]
-    }
+    // namedExports: {
+    //   "node_modules/mablibre-gl/dist/style-spec/index.js": ["styleSpec", "expression"]
+    // }
   }),
-  buble()
 ];
 
 export default [
   {
-    input: "demo.js",
-    output: [{ file: "docs/index.js", format: "iife" }],
-    plugins
-  },
-  {
-    input: "src/index.js",
-    output: [{ file: pkg.browser, format: "umd", name: "windGL" }],
-    plugins
-  },
-  {
-    input: "src/index.js",
+    input: "dist/esm/index.js",
     output: [
+      // {
+      //   file: pkg.main,
+      //   format: "cjs"
+      // },
       {
         file: pkg.main,
-        format: "cjs"
-      },
-      {
-        file: pkg.module,
         format: "es"
       }
     ],
-    external: ["mapbox-gl/dist/style-spec"],
+    external: ["@maplibre/maplibre-gl-style-spec"],
     plugins
   }
 ];
