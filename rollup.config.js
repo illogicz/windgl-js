@@ -148,9 +148,9 @@ const plugins = [
   makeGLSL({ include: "./dist/esm/shaders/*.glsl" }),
   resolve(),
   commonjs({
-    namedExports: {
-      "node_modules/mablibre-gl/dist/style-spec/index.js": ["styleSpec", "expression"]
-    }
+    // namedExports: {
+    //   "node_modules/mablibre-gl/dist/style-spec/index.js": ["styleSpec", "expression"]
+    // }
   }),
 ];
 
@@ -158,16 +158,16 @@ export default [
   {
     input: "dist/esm/index.js",
     output: [
+      // {
+      //   file: pkg.main,
+      //   format: "cjs"
+      // },
       {
         file: pkg.main,
-        format: "cjs"
-      },
-      {
-        file: pkg.module,
         format: "es"
       }
     ],
-    external: ["maplibre-gl/dist/style-spec"],
+    external: ["@maplibre/maplibre-gl-style-spec"],
     plugins
   }
 ];

@@ -3,7 +3,6 @@
   "version": "0.1.2",
   "description": "A MapboxGL plugin for animated flomap data visualization (based on  @astrosat/windgl)",
   "main": "dist/windgl.esm.js",
-  "module": "dist/windgl.cjs.js",
   "types": "dist/types",
   "files": [
     "dist"
@@ -11,7 +10,7 @@
   "scripts": {
     "prepublishOnly": "npm run build",
     "build:types": "tsc --emitDeclarationOnly",
-    "build:ts": "tsc && tsc ",
+    "build:ts": "tsc",
     "build:js": "npm run build:ts && rollup -c",
     "build": "npm run build:types && npm run build:js",
     "watch": "rollup -c -w",

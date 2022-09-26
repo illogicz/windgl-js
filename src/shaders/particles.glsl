@@ -1,8 +1,7 @@
 precision highp float;
 
-#pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
-#pragma glslify: transform = require(./transform)
-
+#pragma glslify : wgs84ToMercator = require(./ wgs84ToMercator)
+#pragma glslify : transform = require(./ transform)
 
 uniform sampler2D u_particles;
 
@@ -51,27 +50,27 @@ float rand(const vec2 co) {
 // input should be in the range of -1..2
 vec2 windTexture(const vec2 uv) {
     if (uv.x > 1. && uv.y > 1.) {
-        return texture2D(u_wind_bottom_right, uv - vec2(1,1)).rg;
+        return texture2D(u_wind_bottom_right, uv - vec2(1, 1)).rg;
     } else if (uv.x > 0. && uv.y > 1.) {
-        return texture2D(u_wind_bottom_center, uv - vec2(0,1)).rg;
+        return texture2D(u_wind_bottom_center, uv - vec2(0, 1)).rg;
     } else if (uv.y > 1.) {
-        return texture2D(u_wind_bottom_left, uv - vec2(-1,1)).rg;
+        return texture2D(u_wind_bottom_left, uv - vec2(-1, 1)).rg;
     } else if (uv.x > 1. && uv.y > 0.) {
-        return texture2D(u_wind_middle_right, uv - vec2(1,0)).rg;
+        return texture2D(u_wind_middle_right, uv - vec2(1, 0)).rg;
     } else if (uv.x > 0. && uv.y > 0.) {
-        return texture2D(u_wind_middle_center, uv - vec2(0,0)).rg;
+        return texture2D(u_wind_middle_center, uv - vec2(0, 0)).rg;
     } else if (uv.y > 0.) {
-        return texture2D(u_wind_middle_left, uv - vec2(-1,0)).rg;
+        return texture2D(u_wind_middle_left, uv - vec2(-1, 0)).rg;
     } else if (uv.x > 1.) {
-        return texture2D(u_wind_top_right, uv - vec2(1,-1)).rg;
+        return texture2D(u_wind_top_right, uv - vec2(1, -1)).rg;
     } else if (uv.x > 0.) {
-        return texture2D(u_wind_top_center, uv - vec2(0,-1)).rg;
+        return texture2D(u_wind_top_center, uv - vec2(0, -1)).rg;
     } else {
-        return texture2D(u_wind_top_left, uv - vec2(-1,-1)).rg;
+        return texture2D(u_wind_top_left, uv - vec2(-1, -1)).rg;
     }
 }
 
-#pragma glslify: lookup_wind = require(./bilinearWind, windTexture=windTexture, windRes=u_wind_res)
+#pragma glslify : lookup_wind = require(./ bilinearWind, windTexture = windTexture, windRes = u_wind_res)
 
 // This actually updates the position of a particle
 vec2 update(vec2 pos) {
@@ -80,14 +79,13 @@ vec2 update(vec2 pos) {
     float speed_t = length(velocity) / length(u_wind_max);
 
     // lookup wind mask in b channel
-    float b = texture2D(u_wind_middle_center, wind_tex_pos).b;
+    //float b = texture2D(u_wind_middle_center, wind_tex_pos).b;
     // check if mask is > 0.5
     // If it is we relocate this particle
     // TODO: consider using this as a probability
-    bool mask = b < 0.01;//b  > 0.5;
+    //bool mask = b > 0.5; // b < 0.01;
 
-
-    vec2 offset = vec2(velocity.x , -velocity.y) * 0.0001 * u_speed_factor;
+    vec2 offset = vec2(velocity.x, -velocity.y) * 0.0001 * u_speed_factor;
 
     // update particle position
     pos = fract(1.0 + pos + offset);
@@ -98,41 +96,38 @@ vec2 update(vec2 pos) {
     // drop rate is a chance a particle will restart at random position, to avoid degeneration
     float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump + smoothstep(0.24, 0.5, length(pos - vec2(0.5, 0.5)) * 0.7);
 
-    if (mask) {
-      drop_rate = 1.0;
-    }
+    // if(mask) {
+    //   drop_rate = 1.0;
+    // }
 
     float drop = step(1.0 - drop_rate, rand(seed));
 
-
-    vec2 random_pos = vec2(
-        0.5 * rand(seed + 1.3) + 0.25,
-        0.5 * rand(seed + 2.1) + 0.25);
+    vec2 random_pos = vec2(0.5 * rand(seed + 1.3) + 0.25, 0.5 * rand(seed + 2.1) + 0.25);
     return mix(pos, random_pos, drop);
 }
 
-const vec2 bitEnc = vec2(1.,255.);
-const vec2 bitDec = 1./bitEnc;
+const vec2 bitEnc = vec2(1., 255.);
+const vec2 bitDec = 1. / bitEnc;
 
 // decode particle position from pixel RGBA
 vec2 fromRGBA(const vec4 color) {
-  vec4 rounded_color = floor(color * 255.0 + 0.5) / 255.0;
-  float x = dot(rounded_color.rg, bitDec);
-  float y = dot(rounded_color.ba, bitDec);
-  return vec2(x, y);
+    vec4 rounded_color = floor(color * 255.0 + 0.5) / 255.0;
+    float x = dot(rounded_color.rg, bitDec);
+    float y = dot(rounded_color.ba, bitDec);
+    return vec2(x, y);
 }
 
 // encode particle position to pixel RGBA
-vec4 toRGBA (const vec2 pos) {
-  vec2 rg = bitEnc * pos.x;
-  rg = fract(rg);
-  rg -= rg.yy * vec2(1. / 255., 0.);
+vec4 toRGBA(const vec2 pos) {
+    vec2 rg = bitEnc * pos.x;
+    rg = fract(rg);
+    rg -= rg.yy * vec2(1. / 255., 0.);
 
-  vec2 ba = bitEnc * pos.y;
-  ba = fract(ba);
-  ba -= ba.yy * vec2(1. / 255., 0.);
+    vec2 ba = bitEnc * pos.y;
+    ba = fract(ba);
+    ba -= ba.yy * vec2(1. / 255., 0.);
 
-  return vec4(rg, ba);
+    return vec4(rg, ba);
 }
 
 export void particleUpdateFragment() {
@@ -159,13 +154,10 @@ vec2 fix(vec4 inp) {
     return inp.xy / inp.w;
 }
 
-
 export void particleDrawVertex() {
-    vec4 color = texture2D(u_particles, vec2(
-        fract(a_index / u_particles_res),
-        floor(a_index / u_particles_res) / u_particles_res));
+    vec4 color = texture2D(u_particles, vec2(fract(a_index / u_particles_res), floor(a_index / u_particles_res) / u_particles_res));
 
-    // decode current particle position from the pixel's RGBA value
+ // decode current particle position from the pixel's RGBA value
     // vec2 relativeCoordsWGS84 = fromRGBA(color);
 
     // vec2 worldCoordsWGS84 = transform(relativeCoordsWGS84, u_offset);
@@ -185,29 +177,26 @@ export void particleDrawVertex() {
 }
 
 export void particleDrawFragment() {
-  vec2 wind_tex_pos = transform(v_particle_pos, u_data_matrix);
+    vec2 wind_tex_pos = transform(v_particle_pos, u_data_matrix);
     vec2 velocity = mix(u_wind_min, u_wind_max, windTexture(wind_tex_pos));
     float speed_t = length(velocity) / length(u_wind_max);
 
     // lookup wind mask in b channel
-    float b = texture2D(u_wind_middle_center, wind_tex_pos).b;
+    //float b = texture2D(u_wind_middle_center, wind_tex_pos).b;
     // the mask can be used as  a  probability  to  relocate particles
     // It  will also be used to hide particles (make them transparent)
-    bool mask = b < 0.0001;//b  > 0.1;
+    //bool mask = b > 0.1; //b < 0.0001;
 
     // // color ramp is encoded in a 16x16 texture
-    vec2 ramp_pos = vec2(
-        fract(16.0 * speed_t),
-        floor(16.0 * speed_t) / 16.0);
+    vec2 ramp_pos = vec2(fract(16.0 * speed_t), floor(16.0 * speed_t) / 16.0);
 
     vec4 color = texture2D(u_color_ramp, ramp_pos);
     // multiplication factor for color (value as function of  speed)
     // TODO: check this implementation
     float factor = clamp(speed_t * 16.0, 0.0, 1.0);
-    color  = color * factor * float(!mask);
+    color = color * factor; // * float(! mask);
     gl_FragColor = color;
 }
-
 
 // NEW: update program
 export void screenDrawVertex() {
@@ -215,14 +204,12 @@ export void screenDrawVertex() {
     gl_Position = vec4(1.0 - 2.0 * a_pos, 0, 1);
 }
 
-
 // precision mediump float; // defined as highp above
 
 uniform sampler2D u_screen;
 uniform float u_opacity;
 
 // varying vec2 v_tex_pos;
-
 
 export void screenDrawFragment() {
     vec4 color = texture2D(u_screen, 1.0 - v_tex_pos);

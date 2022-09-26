@@ -1,6 +1,6 @@
 import * as util from "./util";
 import tileID, { Tile } from "./tileID";
-import styleSpec from "@maplibre/maplibre-gl-style-spec"
+import * as styleSpec from "@maplibre/maplibre-gl-style-spec"
 import type * as mb from "maplibre-gl"
 import type { mat4 } from "gl-matrix";
 import type { WindSource, WindSourceSpec } from "./source";

@@ -137,4 +137,7 @@ You can use the provided tool to get the data. Simply go to the `data` directory
 
 ## Acknowledgments
 
-This code started as a fork of [mapbox/webgl-wind](https://github.com/mapbox/webgl-wind).
+This code started as a fork of https://github.com/mapbox/webgl-wind  
+ -> https://github.com/astrosat/windgl  
+ -> https://github.com/openearth/windgl  
+ -> https://github.com/lunaseasolutions/windgl-js  

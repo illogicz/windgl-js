@@ -124,7 +124,7 @@ class Particles extends Layer {
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
-      minzoom: 0, // TODO: changed from 0 for testing
+      minzoom: 2, // TODO: changed from 0 for testing
       maxzoom: this.windData.maxzoom + 5 // (3) how much overzoom to allow?
     });
   }
