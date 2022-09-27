@@ -1,6 +1,6 @@
 import maplibregl from "maplibre-gl";
 import * as windGL from ".";
-import { LayerConfig } from "./layer";
+import { LayerConfig, LayerConfigs } from "./layer";
 
 
 //mapboxgl.accessToken =
@@ -15,7 +15,7 @@ let map2: maplibregl.Map;
 
 type Config = {
   style: string,
-  layers: LayerConfig[],
+  layers: LayerConfigs[],
   flyTo?: maplibregl.FlyToOptions;
 }
 
@@ -58,7 +58,7 @@ const configs: Config[] = [
             "#d53e4f"
           ]
         }
-      } as any
+      }
     ],
     flyTo: { pitch: 30, zoom: 2.5, center: [0, 45] }
   },
@@ -80,7 +80,7 @@ const configs: Config[] = [
           ],
           "particle-color": "rgba(60, 60, 90, 0.9)"
         }
-      } as any
+      }
     ],
     flyTo: { zoom: 2, center: [50, -10] }
   },

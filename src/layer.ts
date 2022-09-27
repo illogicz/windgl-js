@@ -4,41 +4,56 @@ import * as styleSpec from "@maplibre/maplibre-gl-style-spec"
 import type * as mb from "maplibre-gl"
 import type { mat4 } from "gl-matrix";
 import type { WindSource, WindSourceSpec } from "./source";
+import { ArrowProps } from "./arrow";
+import { ParticleProps } from "./particles";
+import { SampleFillProps } from "./sampleFill";
 //import type { mat4 } from 'gl-matrix';
 
-type PropertySpec = Record<string, mb.StylePropertySpecification & {
-  //default: any;
-  //[k:keyof ss.LayerSpecification]: any;
-}>
+type PropertySpecs<Props extends string> = Record<Props, PropertySpec>;
+type PropertySpec = mb.StylePropertySpecification & {
+  //default?: mb.ExpressionSpecificationDefinition
+}
 
-export type LayerConfig = (mb.LayerSpecification | (Omit<mb.LayerSpecification, "type"> & { type: "arrow" | "particles" | "sampleFill"; })) & {
-  [k: string]: any;
+
+export type LayerConfig<Props extends string> = (mb.LayerSpecification | (Omit<mb.LayerSpecification, "type"> & { type: "arrow" | "particles" | "sampleFill"; })) & {
+  //[k: string]: any;
   after?: string,
-  properties?: { [k: string]: any; };
+  properties?: { [K in Props]: mb.StylePropertySpecification; };
   source?: any;
 }
 
-export type LayerOptions = mb.LayerSpecification & {
-  source?: any;
+export type LayerConfigs =
+  ({ type: "arrow" } & LayerConfig<ArrowProps>) |
+  ({ type: "particle" } & LayerConfig<ParticleProps>) |
+  ({ type: "arrow" } & LayerConfig<SampleFillProps>);
+
+export type LayerOptions<Props extends string> = mb.LayerSpecification & { source: WindSource } & {
+  [K in Props]: mb.StylePropertySpecification;
 }
 
 /**
  * This is an abstract base class that handles most of the mapbox specific
  * stuff as well as a lot of the bookkeeping.
  */
-export default abstract class Layer implements mb.CustomLayerInterface {
-  constructor(propertySpec: PropertySpec, { id, source, ...options }: LayerOptions) {
+export default abstract class Layer<Props extends string> implements mb.CustomLayerInterface {
+  constructor(propertySpec: PropertySpecs<Props>, { id, source, ...options }: LayerOptions<Props>) {
     this.id = id;
     this.type = "custom";
     this.renderingMode = "2d";
     this.source = source;
     this.propertySpec = propertySpec;
+
+    this._zoomUpdatable = {};
+    this._propsOnInit = {};
+    this.tileZoomOffset = 0;
+    this._tiles = {};
+
     this.source.metadata(this.setWind.bind(this));
 
     // This will initialize the default values
-    Object.keys(this.propertySpec).forEach(spec => {
-      this.setProperty(spec, (options as any)[spec] || this.propertySpec[spec].default);
-    });
+    Object.keys(this.propertySpec).forEach(((spec: Props) => {
+      this.setProperty(spec, options[spec] || this.propertySpec[spec].default);
+    }) as any);
   }
 
   //@ts-ignore
@@ -48,28 +63,28 @@ export default abstract class Layer implements mb.CustomLayerInterface {
   id: string;
   type: "custom";
   renderingMode?: "2d" | "3d" | undefined;
-  prerender?(gl: WebGLRenderingContext, matrix: mat4): void;
   pixelToGridRatio = 1;
-  propertySpec: PropertySpec;
+  propertySpec: PropertySpecs<Props>;
   source: WindSource;
   colorRampTexture?: WebGLTexture;
 
   //@ts-ignore
   windData: WindSourceSpec;
-  //tileZoomOffset: number;
-  private _zoomUpdatable: Record<string, mb.CameraExpression | mb.CompositeExpression> = {};
-  private _propsOnInit: Record<string, mb.ConstantExpression | mb.SourceExpression> = {};
-  protected _tiles: Record<string, Tile> = {};
+  tileZoomOffset: number;
+  private _zoomUpdatable: Record<string, mb.CameraExpression | mb.CompositeExpression>;
+  private _propsOnInit: Record<string, mb.ConstantExpression | mb.SourceExpression>;
+  protected _tiles: Record<string, Tile>;
 
   //[prop: string]: any;
 
   /**
    * Update a property using a mapbox style epxression.
    */
-  setProperty(prop: string, value: unknown) {
+  setProperty(prop: Props, value: unknown) {
     const spec = this.propertySpec[prop];
     if (!spec) return;
     const expr = styleSpec.expression.createPropertyExpression(value, spec);
+    console.log(prop, expr)
     if (expr.result === "success") {
       switch (expr.value.kind) {
         case "camera":
@@ -101,11 +116,17 @@ export default abstract class Layer implements mb.CustomLayerInterface {
     if (this[setterName]) {
       //@ts-ignore
       this[setterName](value);
-    } else {
       //@ts-ignore
-      this[name[0].toLowerCase() + name.slice(1)] = value.evaluate({
+      console.log("execute", setterName, this[setterName], value)
+    } else {
+      const setterName = name[0].toLowerCase() + name.slice(1);
+      //@ts-ignore
+      this[setterName] = value.evaluate({
         zoom: (this.map && this.map.getZoom()) ?? 1 // EDIT "?? 1"
       });
+      //@ts-ignore
+      console.log("create", setterName, this[setterName], value)
+
     }
   }
 
@@ -262,6 +283,8 @@ export default abstract class Layer implements mb.CustomLayerInterface {
     map.off("zoom", this.zoom);
   }
 
+  prerender?(gl: WebGLRenderingContext, matrix: mat4): void;
+
   // called by mapboxgl
   render(gl: WebGLRenderingContext, matrix: mat4) {
     if (this.windData) {
@@ -270,6 +293,7 @@ export default abstract class Layer implements mb.CustomLayerInterface {
         Math.min(this.windData.width, this.windData.height),
         this.windData
       ).forEach(tile => {
+        //console.log("visibleTile", tile)
         const texture = this._tiles[tile.toString()];
         if (!texture) return;
         this.draw(gl, matrix, texture, tile.viewMatrix());

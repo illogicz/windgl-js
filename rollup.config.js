@@ -2,6 +2,7 @@
 import pkg from "./package.json";
 import commonjs from "rollup-plugin-commonjs";
 import resolve from "rollup-plugin-node-resolve";
+import typescript from "@rollup/plugin-typescript";
 import path from "path"
 import fs from "fs"
 
@@ -143,20 +144,21 @@ function copyFiles(from, to, overwrite = false) {
 }
 
 const plugins = [
-  copyFiles("./src/shaders", "./dist/esm/shaders"),
-  copyFiles("./src/typings", "./dist/types"),
-  makeGLSL({ include: "./dist/esm/shaders/*.glsl" }),
+  //copyFiles("./src/shaders", "./dist/esm/shaders"),
+  //copyFiles("./src/typings", "./dist/types"),
+  makeGLSL({ include: "./src/shaders/*.glsl" }),
   resolve(),
   commonjs({
     // namedExports: {
     //   "node_modules/mablibre-gl/dist/style-spec/index.js": ["styleSpec", "expression"]
     // }
   }),
+  typescript({ sourceMap: true }),
 ];
 
 export default [
   {
-    input: "dist/esm/index.js",
+    input: "src/index.ts",
     output: [
       // {
       //   file: pkg.main,
@@ -164,7 +166,8 @@ export default [
       // },
       {
         file: pkg.main,
-        format: "es"
+        format: "es",
+        sourcemap: true
       }
     ],
     external: ["@maplibre/maplibre-gl-style-spec"],

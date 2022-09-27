@@ -104,3 +104,7 @@ export function bindFramebuffer(gl: WebGLRenderingContext, framebuffer: WebGLFra
 export function matrixInverse(matrix: string | number[]) {
   return new window.DOMMatrixReadOnly(matrix).inverse().toFloat32Array();
 }
+
+export function matrixInverseTyped(matrix: Float32Array) {
+  return window.DOMMatrixReadOnly.fromFloat32Array(matrix).inverse().toFloat32Array();
+}

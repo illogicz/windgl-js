@@ -1,12 +1,10 @@
-import * as util from "./util";
-import Layer, { LayerConfig, LayerOptions } from "./layer";
-import type * as mb from "maplibre-gl";
 import type { mat4 } from "gl-matrix";
+import type * as mb from "maplibre-gl";
+import Layer, { LayerOptions } from "./layer";
+import * as util from "./util";
 
 import {
-  particleUpdate,
-  particleDraw,
-  //  screenDraw
+  particleDraw, particleUpdate
 } from "./shaders/particles.glsl";
 import { Tile } from "./tileID";
 
@@ -31,6 +29,10 @@ type DataTile = {
   tileBottomRight: Tile;
 };
 
+export type ParticleProps = "particle-color" | "particle-speed";
+export type ParticleOptions = LayerOptions<ParticleProps>
+
+
 /**
  * This layer simulates a particles system where the particles move according
  * to the forces of the wind. This is achieved in a two step rendering process:
@@ -44,13 +46,15 @@ type DataTile = {
  *    are read from the texture and are projected into pseudo-mercator coordinates
  *    and their final position is computed based on the map viewport.
  */
-class Particles extends Layer {
-  constructor(options: LayerOptions) {
+class Particles extends Layer<ParticleProps> {
+  constructor(options: ParticleOptions) {
     super(
       {
         "particle-color": {
           type: "color",
           default: "white",
+          transition: true,
+          overridable: true,
           expression: {
             interpolated: true,
             parameters: ["zoom", "feature"],
@@ -59,7 +63,7 @@ class Particles extends Layer {
         },
         "particle-speed": {
           type: "number",
-          minimum: 0,
+          //minimum: 0,
           default: 0.75,
           transition: true,
           expression: {
@@ -68,9 +72,18 @@ class Particles extends Layer {
           },
           "property-type": "data-constant",
         },
-      } as any,
+      },
       options
     );
+    this.pixelToGridRatio = 20;
+    this.tileSize = 1024;
+
+    this.dropRate = 0.03; // how often the particles move to a random place
+    this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+    this._numParticles = 65536;
+
+    // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
+    this._particleTiles = {};
   }
 
   updateProgram!: GlslProgram;
@@ -88,22 +101,22 @@ class Particles extends Layer {
   screenTexture?: WebGLTexture;
   particleStateResolution!: number;
 
-  particleSpeed!: number;
+  particleSpeed: number = 0.5;
 
-  pixelToGridRatio = 2; // not sure how to interpret this [possibly the ratio of canvas height (pixels) to tile height (grid)]
-  tileSize = 512; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
+  pixelToGridRatio = 20;
+  tileSize = 1024; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
 
-  dropRate = 0.003; // how often the particles move to a random place
-  dropRateBump = 0.01; // drop rate increase relative to individual particle speed
-  private _numParticles = 128 * 128;//65536;
-  fadeOpacity = 0.97; // how fast the particle trails fade on each frame
+  dropRate = 0.0003; // how often the particles move to a random place
+  dropRateBump = 0.0001; // drop rate increase relative to individual particle speed
+  private _numParticles = 4 * 65536;
+  fadeOpacity = 0.99; // how fast the particle trails fade on each frame
   // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
   private _particleTiles: Record<string, ParticleTile> = {};
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
       minzoom: 0, // 2
-      maxzoom: this.windData.maxzoom + 3 // 5
+      maxzoom: this.windData.maxzoom + 5 // 5
     });
   }
 
@@ -358,7 +371,7 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-    gl.flush();
+    //gl.flush();
 
     // swap the particle state textures so the new one becomes the current one
     const temp = tile.particleStateTexture0;
@@ -420,7 +433,8 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(
       program.u_offset_inverse,
       false,
-      util.matrixInverse(Array.from(offset))
+      //@ts-ignore
+      util.matrixInverse(offset)
     );
 
     gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
@@ -430,8 +444,8 @@ class Particles extends Layer {
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.POINTS, 0, this._numParticles);
-    gl.flush();
+    //gl.flush();
   }
 }
 
-export default (options: LayerOptions) => new Particles(options);
+export default (options: ParticleOptions) => new Particles(options);

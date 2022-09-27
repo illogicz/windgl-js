@@ -4,14 +4,18 @@ import { arrow } from "./shaders/arrow.glsl";
 import type * as mb from "maplibre-gl";
 import { Tile } from "./tileID";
 
+export type ArrowProps = "arrow-min-size" | "arrow-color" | "arrow-halo-color";
+export type ArrowOptions = LayerOptions<ArrowProps>
 
-class Arrows extends Layer {
-  constructor(options: LayerOptions) {
+
+class Arrows extends Layer<ArrowProps> {
+  constructor(options: ArrowOptions) {
     super(
       {
         "arrow-min-size": {
           type: "number",
-          minimum: 1,
+          //minimum: 1,
+          transition: true,
           default: 40,
           expression: {
             interpolated: true,
@@ -22,6 +26,9 @@ class Arrows extends Layer {
         "arrow-color": {
           type: "color",
           default: "white",
+          transition: true,
+          overridable: true,
+
           expression: {
             interpolated: true,
             parameters: ["zoom", "feature"]
@@ -31,13 +38,15 @@ class Arrows extends Layer {
         "arrow-halo-color": {
           type: "color",
           default: "rgba(0,0,0,0)",
+          transition: true,
+          overridable: true,
           expression: {
             interpolated: true,
             parameters: ["zoom"]
           },
           "property-type": "data-constant"
         }
-      } as any,
+      },
       options
     );
     this.pixelToGridRatio = 25;
@@ -148,4 +157,4 @@ class Arrows extends Layer {
   }
 }
 
-export default (options: LayerOptions) => new Arrows(options);
+export default (options: ArrowOptions) => new Arrows(options);

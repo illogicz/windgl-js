@@ -6,8 +6,12 @@ import { sampleFill } from "./shaders/sampleFill.glsl";
 import { Tile } from "./tileID";
 import type * as mb from "maplibre-gl";
 
-class SampleFill extends Layer {
-  constructor(options: LayerOptions) {
+
+export type SampleFillProps = "sample-fill-color" | "sample-opacity";
+export type SampleFillOptions = LayerOptions<SampleFillProps>
+
+class SampleFill extends Layer<SampleFillProps> {
+  constructor(options: SampleFillOptions) {
     super(
       {
         "sample-fill-color": {
@@ -32,8 +36,10 @@ class SampleFill extends Layer {
             "#f46d43",
             100.0,
             "#d53e4f"
-          ],
-          doc: "The color of each pixel of this layer",
+          ] as any,
+          overridable: true,
+          transition: true,
+          //doc: "The color of each pixel of this layer",
           expression: {
             interpolated: true,
             parameters: ["zoom", "feature"]
@@ -43,8 +49,8 @@ class SampleFill extends Layer {
         "sample-opacity": {
           type: "number",
           default: 1,
-          minimum: 0,
-          maximum: 1,
+          //minimum: 0,
+          //maximum: 1,
           transition: true,
           expression: {
             interpolated: true,
@@ -52,21 +58,24 @@ class SampleFill extends Layer {
           },
           "property-type": "data-constant"
         }
-      } as any,
+      },
       options
     );
-    this.pixelToGridRatio = 20;
+    this.pixelToGridRatio = 1;
+
   }
-  backgroundProgram!: any; // GLSL program?;
+  backgroundProgram!: any;
   quadBuffer: WebGLBuffer | null = null;
   sampleOpacity!: number;
+  framebuffer: WebGLFramebuffer | null = null;
 
   initialize(map: mb.Map, gl: WebGLRenderingContext) {
     this.backgroundProgram = sampleFill(gl);
 
+    const n = 1;
     this.quadBuffer = util.createBuffer(
       gl,
-      new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
+      new Float32Array([0, 0, n, 0, 0, n, 0, n, n, 0, n, n])
     );
   }
 
@@ -74,7 +83,26 @@ class SampleFill extends Layer {
     this.buildColorRamp(expr);
   }
 
-  draw(gl: WebGLRenderingContext, matrix: number[], tile: Tile, offset: number[]) {
+  // This is a callback from mapbox for rendering into a texture
+  // prerender(gl: WebGLRenderingContext, matrix: mat4) {
+  //   if (this.windData) {
+  //     const tiles = this.computeVisibleTiles(
+  //       this.pixelToGridRatio, // cannot find where this is defined
+  //       Math.min(this.windData.width, this.windData.height),
+  //       this.windData
+  //     )
+  //     tiles.forEach((tile) => {
+  //       const texture = tile.getTexture?.(gl);
+  //       if (texture) util.bindFramebuffer(gl, this.framebuffer, texture);
+  //     });
+  //     this.map!.triggerRepaint();
+  //   }
+  // }
+
+  draw(gl: WebGLRenderingContext, matrix: Float32Array, tile: Tile, offset: Float32Array) {
+
+    //console.log("draw", { matrix, tile, offset });
+
     const opacity = this.sampleOpacity;
     const program = this.backgroundProgram;
     gl.useProgram(program.program);
@@ -92,7 +120,7 @@ class SampleFill extends Layer {
     gl.uniformMatrix4fv(
       program.u_offset_inverse,
       false,
-      util.matrixInverse(offset)
+      util.matrixInverseTyped(offset)
     );
     gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
     gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
@@ -103,4 +131,4 @@ class SampleFill extends Layer {
   }
 }
 
-export default (options: LayerOptions) => new SampleFill(options);
+export default (options: SampleFillOptions) => new SampleFill(options);
