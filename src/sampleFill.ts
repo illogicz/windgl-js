@@ -1,10 +1,9 @@
+import Layer, { LayerOptions } from "./layer";
 import * as util from "./util";
-import Layer, { LayerConfig, LayerOptions } from "./layer";
-import type { mat4 } from "gl-matrix";
 
+import type * as mb from "maplibre-gl";
 import { sampleFill } from "./shaders/sampleFill.glsl";
 import { Tile } from "./tileID";
-import type * as mb from "maplibre-gl";
 
 
 export type SampleFillProps = "sample-fill-color" | "sample-opacity";
@@ -91,7 +90,7 @@ class SampleFill extends Layer<SampleFillProps> {
   }
 
   setSampleFillColor(expr: mb.StylePropertyExpression) {
-    this.buildColorRamp(expr);
+    this.buildColorRamp(expr, 256);
   }
 
   // This is a callback from mapbox for rendering into a texture
@@ -111,10 +110,9 @@ class SampleFill extends Layer<SampleFillProps> {
   // }
 
   draw(gl: WebGLRenderingContext, matrix: Float32Array, tile: Tile, offset: Float32Array) {
-
     //console.log("draw", { matrix, tile, offset });
 
-    const opacity = this.sampleOpacity;
+    const opacity = this.sampleOpacity
     const program = this.backgroundProgram;
     gl.useProgram(program.program);
 
@@ -132,10 +130,17 @@ class SampleFill extends Layer<SampleFillProps> {
       program.u_offset_inverse,
       false,
       util.matrixInverseTyped(offset)
-    );
+    )
+
+    // EDIT: Not just max possitive value, but also absolute value in negative direction for max speed.
+    // Actual max speed is still just a guess, would need to check on a per pixel basis, not worth it.
+    const { uMin, vMin, uMax, vMax } = this.windData;
+    const maxSpeed = Math.sqrt(Math.max(uMax ** 2, uMin ** 2) + Math.max(vMax ** 2, vMin ** 2));
+
     gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
-    gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-    gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+    gl.uniform2f(program.u_wind_min, uMin, vMin);
+    gl.uniform2f(program.u_wind_max, uMax, vMax);
+    gl.uniform1f(program.u_speed_max, maxSpeed); //
     gl.uniformMatrix4fv(program.u_matrix, false, matrix);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);

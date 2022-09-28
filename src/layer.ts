@@ -135,7 +135,8 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
   // 256 possible speed values in the range of the dataset and storing
   // those in a 16x16 texture. The shaders than can simply pick the appropriate
   // pixel to determine the correct color.
-  buildColorRamp(expr: mb.StylePropertyExpression) {
+  buildColorRamp(expr: mb.StylePropertyExpression, width = 16, filter = this.gl!.LINEAR) {
+    if (256 % width) throw new Error("color ramp width must be a factor of 256");
     const colors = new Uint8Array(256 * 4);
     let range = 1;
     if (expr.kind === "source" || expr.kind === "composite") {
@@ -160,10 +161,10 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
     }
     this.colorRampTexture = util.createTexture(
       this.gl!,
-      this.gl!.LINEAR,
+      filter,
       colors,
-      16,
-      16
+      width,
+      256 / width
     );
   }
 

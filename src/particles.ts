@@ -79,7 +79,7 @@ class Particles extends Layer<ParticleProps> {
     this.pixelToGridRatio = 20;
     this.tileSize = 1024;
 
-    this.dropRate = 0.003; // how often the particles move to a random place
+    this.dropRate = 0.01; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
     this.particleSpeed = 1;
     this._numParticles = 65536;

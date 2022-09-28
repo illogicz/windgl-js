@@ -1,11 +1,23 @@
-
 const float PI = 3.14159265359;
 
 /**
  * Converts mapbox style pseudo-mercator coordinates (this is just like mercator, but the unit isn't a meter, but 0..1
  * spans the entire world) into texture like WGS84 coordinates (this is just like WGS84, but instead of angles, it uses
  * intervals of 0..1).
+ * EDIT: Optimised 
  */
+vec2 mercatorToWGS84(vec2 xy) {
+    
+    float yy = (xy.y * 2.0 - 1.0) * PI;
+    return vec2(
+        xy.x, 
+        atan(exp(yy)) * 2.0 / PI
+    );
+}
+
+#pragma glslify: export(mercatorToWGS84)
+
+/* ORIG
 vec2 mercatorToWGS84(vec2 xy) {
     // convert lat into an angle
     float y = radians(180.0 - xy.y * 360.0);
@@ -16,5 +28,4 @@ vec2 mercatorToWGS84(vec2 xy) {
     // pass lng through, as it doesn't change
     return vec2(xy.x, y);
 }
-
-#pragma glslify: export(mercatorToWGS84)
+*/
