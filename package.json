@@ -2,8 +2,7 @@
   "name": "windgl-js",
   "version": "0.1.2",
   "description": "A MapboxGL plugin for animated data visualization (based on  @astrosat/windgl)",
-  "main": "dist/windgl.esm.js",
-  "types": "dist",
+  "main": "dist/index.js",
   "files": [
     "dist"
   ],

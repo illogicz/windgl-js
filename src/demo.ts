@@ -1,6 +1,9 @@
 import maplibregl from "maplibre-gl";
 import * as windGL from ".";
-import { LayerConfig, LayerConfigs } from "./layer";
+import { ArrowProps } from "./arrow";
+import { LayerConfig } from "./layer";
+import { ParticleProps } from "./particles";
+import { SampleFillProps } from "./sampleFill";
 
 
 //mapboxgl.accessToken =
@@ -11,6 +14,11 @@ let mapContainer2 = document.getElementById("map2") as HTMLElement;
 
 let map1: maplibregl.Map;
 let map2: maplibregl.Map;
+
+type LayerConfigs =
+  ({ type: "arrow" } & LayerConfig<ArrowProps>) |
+  ({ type: "particle" } & LayerConfig<ParticleProps>) |
+  ({ type: "arrow" } & LayerConfig<SampleFillProps>);
 
 
 type Config = {

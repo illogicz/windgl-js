@@ -75,11 +75,13 @@ class Particles extends Layer<ParticleProps> {
       },
       options
     );
+
     this.pixelToGridRatio = 20;
     this.tileSize = 1024;
 
-    this.dropRate = 0.03; // how often the particles move to a random place
+    this.dropRate = 0.003; // how often the particles move to a random place
     this.dropRateBump = 0.01; // drop rate increase relative to individual particle speed
+    this.particleSpeed = 1;
     this._numParticles = 65536;
 
     // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
@@ -101,22 +103,21 @@ class Particles extends Layer<ParticleProps> {
   screenTexture?: WebGLTexture;
   particleStateResolution!: number;
 
-  particleSpeed: number = 0.5;
+  private particleSpeed: number;
+  private tileSize: number;
+  private dropRate: number;
+  private dropRateBump: number
+  private _numParticles: number;
 
-  pixelToGridRatio = 20;
-  tileSize = 1024; // this seems to scale the zoom levels at which tiles get rendered -- may be useful
+  //fadeOpacity = 0.99; // how fast the particle trails fade on each frame
 
-  dropRate = 0.0003; // how often the particles move to a random place
-  dropRateBump = 0.0001; // drop rate increase relative to individual particle speed
-  private _numParticles = 4 * 65536;
-  fadeOpacity = 0.99; // how fast the particle trails fade on each frame
   // This layer manages 2 kinds of tiles: data tiles (the same as other layers) and particle state tiles
-  private _particleTiles: Record<string, ParticleTile> = {};
+  private _particleTiles: Record<string, ParticleTile>;
 
   visibleParticleTiles() {
     return this.computeVisibleTiles(2, this.tileSize, {
       minzoom: 0, // 2
-      maxzoom: this.windData.maxzoom + 5 // 5
+      maxzoom: this.windData.maxzoom + 3 // 5
     });
   }
 
@@ -270,11 +271,12 @@ class Particles extends Layer<ParticleProps> {
     let t = tileID;
     let found;
     let matrix = new window.DOMMatrix();
-    while (!t.isRoot()) {
+    while (true) { //!t.isRoot()) {
       if ((found = this._tiles[t.toString()])) break;
       const [x, y] = t.quadrant();
       matrix.translateSelf(0.5 * x, 0.5 * y);
       matrix.scaleSelf(0.5);
+      if (t.isRoot()) return;
       t = t.parent();
     }
     if (!found) return;

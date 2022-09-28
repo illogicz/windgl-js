@@ -17,9 +17,11 @@ function getJSON(url: URL, callback: any) {
 
 
 type TileCallback = (tile: Tile) => void;
+type MetaCallback = (data: WindSourceSpec) => void;
 
 export interface WindSource {
-  metadata(cb: (data: WindSourceSpec) => void): void;
+  metadata(cb: MetaCallback): void;
+  unlisten(cb: MetaCallback): void;
   loadTile(tile: Tile, cb: TileCallback): void;
 }
 
@@ -53,7 +55,7 @@ export default (relUrl: string): WindSource => {
   let data: WindSourceSpec;
   let requestsBeforeMetadataLoaded: Set<any> | any[] = new Set();
   let cache: Record<string, (gl: WebGLRenderingContext) => WebGLTexture> = {};
-  let dataCallbacks: ((...args: any[]) => void)[] = [];
+  let dataCallbacks: MetaCallback[] = [];
 
   getJSON(url, (windData: WindSourceSpec) => {
     data = windData;
@@ -103,6 +105,9 @@ export default (relUrl: string): WindSource => {
   }
 
   return {
+    unlisten(cb) {
+      dataCallbacks = dataCallbacks.filter(c => c !== cb);
+    },
     metadata(cb) {
       if (data) {
         cb(data);

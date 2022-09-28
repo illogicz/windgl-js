@@ -49,15 +49,26 @@ class SampleFill extends Layer<SampleFillProps> {
         "sample-opacity": {
           type: "number",
           default: 1,
-          //minimum: 0,
-          //maximum: 1,
+          minimum: 0,
+          maximum: 1,
           transition: true,
           expression: {
             interpolated: true,
             parameters: ["zoom"]
           },
           "property-type": "data-constant"
-        }
+        } as any
+        // type: "number",
+        // default: 1,
+        // //minimum: 0,
+        // //maximum: 1,
+        // transition: true,
+        // expression: {
+        //   interpolated: true,
+        //   parameters: ["zoom"]
+        // },
+        // "property-type": "data-constant"
+        //}
       },
       options
     );
