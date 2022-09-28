@@ -1,17 +1,19 @@
-function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
+function createShader(gl: WebGLRenderingContext, type: number, source: string) {
+  // EDIT (+!)
+  const shader = gl.createShader(type)!;
+  gl.shaderSource(shader!, source);
 
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    throw new Error(gl.getShaderInfoLog(shader));
+    throw new Error(gl.getShaderInfoLog(shader) ?? "");
   }
 
   return shader;
 }
 
-export function createProgram(gl, vertexSource, fragmentSource) {
-  const program = gl.createProgram();
+export function createProgram(gl: WebGLRenderingContext, vertexSource: string, fragmentSource: string) {
+  // EDIT (+!)
+  const program = gl.createProgram()!;
 
   const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
   const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
@@ -21,26 +23,28 @@ export function createProgram(gl, vertexSource, fragmentSource) {
 
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    throw new Error(gl.getProgramInfoLog(program));
+    throw new Error(gl.getProgramInfoLog(program) ?? "");
   }
 
-  const wrapper = { program: program };
+  const wrapper: Record<string, any> = { program: program };
 
   const numAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
   for (let i = 0; i < numAttributes; i++) {
-    const attribute = gl.getActiveAttrib(program, i);
+    const attribute = gl.getActiveAttrib(program, i)!; //+!
     wrapper[attribute.name] = gl.getAttribLocation(program, attribute.name);
   }
   const numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
   for (let i = 0; i < numUniforms; i++) {
-    const uniform = gl.getActiveUniform(program, i);
+    const uniform = gl.getActiveUniform(program, i)!; // +!
     wrapper[uniform.name] = gl.getUniformLocation(program, uniform.name);
   }
 
   return wrapper;
 }
 
-export function createTexture(gl, filter, data, width, height) {
+export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array, width: number, height: number): WebGLTexture;
+export function createTexture(gl: WebGLRenderingContext, filter: number, data: TexImageSource): WebGLTexture;
+export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array | TexImageSource, width?: number, height?: number) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -52,8 +56,8 @@ export function createTexture(gl, filter, data, width, height) {
       gl.TEXTURE_2D,
       0,
       gl.RGBA,
-      width,
-      height,
+      width!,
+      height!,
       0,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
@@ -66,25 +70,25 @@ export function createTexture(gl, filter, data, width, height) {
   return texture;
 }
 
-export function bindTexture(gl, texture, unit) {
+export function bindTexture(gl: WebGLRenderingContext, texture: WebGLTexture, unit: number) {
   gl.activeTexture(gl.TEXTURE0 + unit);
   gl.bindTexture(gl.TEXTURE_2D, texture);
 }
 
-export function createBuffer(gl, data) {
+export function createBuffer(gl: WebGLRenderingContext, data: BufferSource) {
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
   return buffer;
 }
 
-export function bindAttribute(gl, buffer, attribute, numComponents) {
+export function bindAttribute(gl: WebGLRenderingContext, buffer: WebGLBuffer, attribute: number, numComponents: number) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(attribute);
   gl.vertexAttribPointer(attribute, numComponents, gl.FLOAT, false, 0, 0);
 }
 
-export function bindFramebuffer(gl, framebuffer, texture) {
+export function bindFramebuffer(gl: WebGLRenderingContext, framebuffer: WebGLFramebuffer | null, texture?: WebGLTexture) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
   if (texture) {
     gl.framebufferTexture2D(
@@ -97,6 +101,10 @@ export function bindFramebuffer(gl, framebuffer, texture) {
   }
 }
 
-export function matrixInverse(matrix) {
+
+export function matrixInverse(matrix: string | number[]) {
   return new window.DOMMatrixReadOnly(matrix).inverse().toFloat32Array();
+}
+export function matrixInverseTyped(matrix: Float32Array) {
+  return window.DOMMatrixReadOnly.fromFloat32Array(matrix).inverse().toFloat32Array();
 }

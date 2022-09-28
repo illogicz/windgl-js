@@ -1,10 +1,11 @@
+import type { Tile } from "./tileID";
 import * as util from "./util";
 
-function getJSON(url, callback) {
+function getJSON(url: URL, callback: any) {
   const xhr = new XMLHttpRequest();
   xhr.responseType = "json";
   xhr.open("get", url, true);
-  xhr.onload = function() {
+  xhr.onload = function () {
     if (xhr.status >= 200 && xhr.status < 300) {
       callback(xhr.response);
     } else {
@@ -14,8 +15,32 @@ function getJSON(url, callback) {
   xhr.send();
 }
 
-export default relUrl => {
-  const url = new URL(relUrl, window.location);
+
+type TileCallback = (tile: Tile) => void;
+type MetaCallback = (data: WindSourceSpec) => void;
+
+export interface WindSource {
+  metadata(cb: MetaCallback): void;
+  unlisten(cb: MetaCallback): void;
+  loadTile(tile: Tile, cb: TileCallback): void;
+}
+
+export interface WindSourceSpec {
+  source: string;
+  date: Date;
+  width: number;
+  height: number;
+  uMin: number;
+  uMax: number;
+  vMin: number;
+  vMax: number;
+  minzoom: number;
+  maxzoom: number;
+  tiles: string[];
+}
+
+export default (relUrl: string): WindSource => {
+  const url = new URL(relUrl, window.location as any);
   /**
    * A note on how this works:
    * 0. At any moment we can recieve a request for a tile.
@@ -26,13 +51,13 @@ export default relUrl => {
    * 3. When an image is loaded we store the data in a cache and empty the queue of all relevant callbacks by calling them.
    * 4. If there is already data in the cache, simply call the callback right away.
    */
-  let tileRequests = {};
-  let data;
-  let requestsBeforeMetadataLoaded = new Set();
-  let cache = {};
-  let dataCallbacks = [];
+  let tileRequests: Record<any, TileCallback[]> = {};
+  let data: WindSourceSpec;
+  let requestsBeforeMetadataLoaded: Set<any> | any[] = new Set();
+  let cache: Record<string, (gl: WebGLRenderingContext) => WebGLTexture> = {};
+  let dataCallbacks: MetaCallback[] = [];
 
-  getJSON(url, windData => {
+  getJSON(url, (windData: WindSourceSpec) => {
     data = windData;
     dataCallbacks.forEach(cb => cb(data));
     requestsBeforeMetadataLoaded.forEach(tile => {
@@ -48,38 +73,41 @@ export default relUrl => {
     requestsBeforeMetadataLoaded = [];
   });
 
-  function dispatchCallback(tile, cb) {
-    cb(Object.assign(tile, { getTexture: cache[tile] }));
+  function dispatchCallback(tile: Tile, cb: TileCallback) {
+    cb(Object.assign(tile, { getTexture: cache[tile.toString()] }));
   }
 
-  function load(tile) {
+  function load(tile: Tile) {
     const windImage = new Image();
     const tileUrl = new URL(
       data.tiles[0]
-        .replace(/{z}/g, tile.z)
-        .replace(/{x}/g, tile.x)
-        .replace(/{y}/g, tile.y),
+        .replace(/{z}/g, tile.z.toString())
+        .replace(/{x}/g, tile.x.toString())
+        .replace(/{y}/g, tile.y.toString()),
       url
     );
     if (tileUrl.origin !== window.location.origin) {
       windImage.crossOrigin = "anonymous";
     }
-    windImage.src = tileUrl;
+    windImage.src = tileUrl.toString();
     windImage.onload = () => {
-      let texture;
-      cache[tile] = gl => {
+      let texture: WebGLTexture | null;
+      cache[tile.toString()] = (gl: WebGLRenderingContext) => {
         if (texture) return texture;
         texture = util.createTexture(gl, gl.LINEAR, windImage);
         return texture;
       };
       let req;
-      while ((req = tileRequests[tile].pop())) {
+      while ((req = tileRequests[tile.toString()].pop())) {
         dispatchCallback(tile, req);
       }
     };
   }
 
   return {
+    unlisten(cb) {
+      dataCallbacks = dataCallbacks.filter(c => c !== cb);
+    },
     metadata(cb) {
       if (data) {
         cb(data);
@@ -88,19 +116,19 @@ export default relUrl => {
       }
     },
     loadTile(tile, cb) {
-      if (cache[tile]) {
+      if (cache[tile.toString()]) {
         dispatchCallback(tile, cb);
       } else {
         if (data) {
-          if (tileRequests[tile]) {
-            tileRequests[tile].push(cb);
+          if (tileRequests[tile.toString()]) {
+            tileRequests[tile.toString()].push(cb);
           } else {
-            tileRequests[tile] = [cb];
+            tileRequests[tile.toString()] = [cb];
             load(tile);
           }
         } else {
-          tileRequests[tile] = (tileRequests[tile] || []).concat([cb]);
-          requestsBeforeMetadataLoaded.add(tile);
+          tileRequests[tile.toString()] = (tileRequests[tile.toString()] || []).concat([cb]);
+          (requestsBeforeMetadataLoaded as Set<Tile>).add(tile);
         }
       }
     }

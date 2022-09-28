@@ -1,7 +1,9 @@
-import buble from "rollup-plugin-buble";
+//import buble from "rollup-plugin-buble";
 import pkg from "./package.json";
 import commonjs from "rollup-plugin-commonjs";
 import resolve from "rollup-plugin-node-resolve";
+import typescript from "@rollup/plugin-typescript";
+import fg from 'fast-glob';
 
 import { compile as glslify } from "glslify";
 import * as GLSLX from "glslx";
@@ -118,40 +120,38 @@ function makeGLSL(userOptions = {}) {
 }
 
 const plugins = [
+  {
+    name: 'watch-external',
+    async buildStart(){
+        const files = await fg('src/**/*');
+        for(let file of files){
+            this.addWatchFile(file);
+        }
+    }
+  },
   makeGLSL({ include: "./src/shaders/*.glsl" }),
   resolve(),
-  commonjs({
-    namedExports: {
-      "node_modules/mapbox-gl/dist/style-spec/index.js": ["expression"]
-    }
-  }),
-  buble()
+  commonjs(),
+  typescript({ 
+    sourceMap: true
+   }),
 ];
 
 export default [
   {
-    input: "demo.js",
-    output: [{ file: "docs/index.js", format: "iife" }],
-    plugins
-  },
-  {
-    input: "src/index.js",
-    output: [{ file: pkg.browser, format: "umd", name: "windGL" }],
-    plugins
-  },
-  {
-    input: "src/index.js",
+    input: "src/index.ts",
     output: [
+      // {
+      //   file: pkg.main,
+      //   format: "cjs"
+      // },
       {
         file: pkg.main,
-        format: "cjs"
-      },
-      {
-        file: pkg.module,
-        format: "es"
+        format: "es",
+        sourcemap: true
       }
     ],
-    external: ["mapbox-gl/dist/style-spec"],
+    external: ["@maplibre/maplibre-gl-style-spec"],
     plugins
   }
 ];

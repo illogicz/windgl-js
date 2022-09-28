@@ -48,7 +48,7 @@ def download_data(filename, product, timestamp):
         f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_{product}.pl?"
         f"file=gfs.t{timestamp[-2:]}z.pgrb2{full}.{product}.f000"
         f"&lev_10_m_above_ground=on&var_UGRD=on&var_VGRD=on&leftlon=0"
-        f"&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{timestamp}"
+        f"&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{timestamp[:-2]}%2F{timestamp[-2:]}%2Fatmos"
     )
 
     try:
@@ -167,7 +167,8 @@ if __name__ == "__main__":
         raise ValueError("Invalid timestamp entered.") from e
 
     for product, zoom in [("1p00", 0), ("0p50", 1), ("0p25", 2)]:
-        filename = os.path.join(args.output_dir, f"{args.timestamp}_{product}.grb")
+        filename = os.path.join(
+            args.output_dir, f"{args.timestamp}_{product}.grb")
 
         # TODO: can probably streamline these steps without saving intermediary files
         download_data(filename, product, args.timestamp)
@@ -184,8 +185,10 @@ if __name__ == "__main__":
 
         for x in range(2 ** zoom):
             for y in range(2 ** zoom):
-                filename = os.path.join(args.output_dir, args.timestamp, str(zoom), str(x), f"{y}.png")
-                image_cut = slice_image(image, y * height, (y + 1) * height, x * width, (x + 1) * width)
+                filename = os.path.join(
+                    args.output_dir, args.timestamp, str(zoom), str(x), f"{y}.png")
+                image_cut = slice_image(
+                    image, y * height, (y + 1) * height, x * width, (x + 1) * width)
                 write_image(filename, image_cut)
 
     json_output = build_meta_json(args.timestamp, **tilejson_variables)

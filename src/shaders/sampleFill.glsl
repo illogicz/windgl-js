@@ -11,6 +11,7 @@ uniform sampler2D u_wind;
 uniform vec2 u_wind_res;
 uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
+uniform float u_speed_max;
 uniform float u_opacity;
 uniform sampler2D u_color_ramp;
 uniform mat4 u_inverse_matrix;
@@ -38,19 +39,24 @@ vec2 windSpeed(const vec2 uv) {
 
 /**
  * Returns the magnitude of the wind speed vector as a proportion of the maximum speed.
- */
+ */ 
 float windSpeedMagnitude(const vec2 uv) {
-    return length(windSpeed(uv)) / length(u_wind_max);
+    return length(windSpeed(uv)) / u_speed_max;
 }
 
 export void sampleFillFragment() {
     vec2 globalWGS84 = mercatorToWGS84(v_tex_pos);
     vec2 localWGS84 = transform(globalWGS84, u_offset_inverse);
     float speed_t = windSpeedMagnitude(localWGS84);
+
+
     // color ramp is./ encoded in a 16x16 texture
-    vec2 ramp_pos = vec2(
-        fract(16.0 * speed_t),
-        floor(16.0 * speed_t) / 16.0);
+    // vec2 ramp_pos = vec2(
+    //     fract(16.0 * speed_t),
+    //     floor(16.0 * speed_t) / 16.0);
+
+    // EDIT: 256x1 instead, avoiding vertical interpolation issues
+    vec2 ramp_pos = vec2(speed_t, 0.5);
 
     vec4 color = texture2D(u_color_ramp, ramp_pos);
 

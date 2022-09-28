@@ -2,3 +2,5 @@ yarn.lock
 .DS_Store
 node_modules/
 dist/
+*.grb
+docs/wind/2022*/**

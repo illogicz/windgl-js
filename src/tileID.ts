@@ -1,6 +1,24 @@
-const tile2WSG84 = (c, z) => c / Math.pow(2, z);
+const tile2WSG84 = (c: number, z: number) => c / Math.pow(2, z);
 
-const tile = (z, x, y, wrap = 0) => ({
+export type Tile = {
+  z: number;
+  x: number;
+  y: number;
+  wrap: number;
+  toString(): string;
+  parent(): Tile;
+  children(): Tile[];
+  siblings(): Tile[];
+  isEqual(other: Tile): boolean;
+  wgs84UnitBounds(): number[];
+  viewMatrix(scale?: number): Float32Array;
+  isRoot(): boolean;
+  neighbor(hor: number, ver: number): Tile;
+  quadrant(): number[];
+  getTexture?: (gl: WebGLRenderingContext) => WebGLTexture
+};
+
+const tile = (z: number, x: number, y: number, wrap = 0): Tile => ({
   z,
   x,
   y,
@@ -12,7 +30,7 @@ const tile = (z, x, y, wrap = 0) => ({
     if (z > 0) return tile(z - 1, x >> 1, y >> 1, wrap);
     else return tile(z, x, y, wrap);
   },
-  children() {
+  children(): Tile[] {
     return [
       tile(z + 1, x * 2, y * 2, wrap),
       tile(z + 1, x * 2 + 1, y * 2, wrap),
@@ -24,11 +42,12 @@ const tile = (z, x, y, wrap = 0) => ({
     return z === 0
       ? []
       : this.parent()
-          .children()
-          .filter(t => !this.isEqual(t));
+        .children()
+        .filter(t => !this.isEqual(t));
   },
-  isEqual(other) {
-    other.x === x && other.y === y && other.z === z && other.wrap === wrap;
+  isEqual(other: Tile) {
+    // No return in original??
+    return other.x === x && other.y === y && other.z === z && other.wrap === wrap;
   },
   wgs84UnitBounds() {
     return [
