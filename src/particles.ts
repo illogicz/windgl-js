@@ -150,7 +150,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
     const tiles = this.visibleParticleTiles();
 
     Object.entries(this._particleTiles).forEach(([key, tile]) => {
-      if (tiles.filter(t => t.toString() == tile.toString()).length === 0) {
+      if (tiles.filter(t => t.key == tile.toString()).length === 0) {
 
         // Object.keys in original, properties would be undefined??
         // And it breaks if we actually fix it.
@@ -162,8 +162,8 @@ export class Particles extends WindGlLayer<ParticleProps> {
       }
     });
     tiles.forEach((tile) => {
-      if (!this._particleTiles[tile.toString()]) {
-        this._particleTiles[tile.toString()] = this.initializeParticleTile();
+      if (!this._particleTiles[tile.key]) {
+        this._particleTiles[tile.key] = this.initializeParticleTile();
       }
     });
   }
@@ -219,8 +219,8 @@ export class Particles extends WindGlLayer<ParticleProps> {
       tiles.forEach((tile) => {
         const found = this.findAssociatedDataTiles(tile);
         if (found) {
-          this.update(gl, this._particleTiles[tile.toString()], found);
-          this._particleTiles[tile.toString()].updated = true;
+          this.update(gl, this._particleTiles[tile.key], found);
+          this._particleTiles[tile.key].updated = true;
         }
       });
       if (blendingEnabled) gl.enable(gl.BLEND);
@@ -233,7 +233,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
    */
   computeLoadableTiles() {
     const result: Record<string, Tile> = {};
-    const add = (tile: Tile) => (result[tile.toString()] = tile);
+    const add = (tile: Tile) => (result[tile.key] = tile);
     this.visibleParticleTiles().forEach((tileID) => {
       let t = tileID;
       let matrix = new window.DOMMatrix();
@@ -272,7 +272,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
     let found;
     let matrix = new window.DOMMatrix();
     while (true) { //!t.isRoot()) {
-      if ((found = this._tiles[t.toString()])) break;
+      if ((found = this._tiles[t.key])) break;
       const [x, y] = t.quadrant();
       matrix.translateSelf(0.5 * x, 0.5 * y);
       matrix.scaleSelf(0.5);
@@ -280,15 +280,15 @@ export class Particles extends WindGlLayer<ParticleProps> {
       t = t.parent();
     }
     if (!found) return;
-    const tileTopLeft = this._tiles[found.neighbor(-1, -1).toString()];
-    const tileTopCenter = this._tiles[found.neighbor(0, -1).toString()];
-    const tileTopRight = this._tiles[found.neighbor(1, -1).toString()];
-    const tileMiddleLeft = this._tiles[found.neighbor(-1, 0).toString()];
+    const tileTopLeft = this._tiles[found.neighbor(-1, -1).key];
+    const tileTopCenter = this._tiles[found.neighbor(0, -1).key];
+    const tileTopRight = this._tiles[found.neighbor(1, -1).key];
+    const tileMiddleLeft = this._tiles[found.neighbor(-1, 0).key];
     const tileMiddleCenter = found;
-    const tileMiddleRight = this._tiles[found.neighbor(1, 0).toString()];
-    const tileBottomLeft = this._tiles[found.neighbor(-1, 1).toString()];
-    const tileBottomCenter = this._tiles[found.neighbor(0, 1).toString()];
-    const tileBottomRight = this._tiles[found.neighbor(1, 1).toString()];
+    const tileMiddleRight = this._tiles[found.neighbor(1, 0).key];
+    const tileBottomLeft = this._tiles[found.neighbor(-1, 1).key];
+    const tileBottomCenter = this._tiles[found.neighbor(0, 1).key];
+    const tileBottomRight = this._tiles[found.neighbor(1, 1).key];
     matrix.translateSelf(-0.5, -0.5);
     matrix.scaleSelf(2, 2);
 
@@ -397,7 +397,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
         this.draw(
           gl,
           matrix,
-          this._particleTiles[tile.toString()],
+          this._particleTiles[tile.key],
           tile.viewMatrix(2),
           found
         );

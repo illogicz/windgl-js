@@ -220,7 +220,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   }
 
   tileLoaded(tile: Tile) {
-    this._tiles[tile.toString()] = tile;
+    this._tiles[tile.key] = tile;
     this.map!.triggerRepaint();
   }
 
@@ -280,7 +280,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   move() {
     const tiles = this.computeLoadableTiles();
     tiles.forEach(tile => {
-      if (!this._tiles[tile.toString()]) {
+      if (!this._tiles[tile.key]) {
         this.source.loadTile(tile, this.tileLoaded.bind(this));
       }
     });
@@ -310,7 +310,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
         Math.min(this.windData.width, this.windData.height),
         this.windData
       ).forEach(tile => {
-        const texture = this._tiles[tile.toString()];
+        const texture = this._tiles[tile.key];
         if (!texture) return;
         this.draw(gl, matrix, texture, tile.viewMatrix());
       });

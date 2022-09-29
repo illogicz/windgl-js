@@ -56,35 +56,40 @@ export const createSource = (relUrl: string): WindSource => {
    * 3. When an image is loaded we store the data in a cache and empty the queue of all relevant callbacks by calling them.
    * 4. If there is already data in the cache, simply call the callback right away.
    */
-  let tileRequests: Record<any, TileCallback[]> = {};
   let data: WindSourceSpec;
-  let requestsBeforeMetadataLoaded: Set<any> | any[] = new Set();
-  let cache: Record<string, (gl: WebGLRenderingContext) => WebGLTexture> = {};
+  let tileRequests: Record<string, TileCallback[]> = {};
+  let requestsBeforeMetadataLoaded = new Set<Tile>();
   let dataCallbacks: MetaCallback[] = [];
+  let cache: Record<string, (gl: WebGLRenderingContext) => WebGLTexture> = {};
   let filter: TextureFilter = "LINEAR";
 
   getJSON(url, (windData: WindSourceSpec) => {
     data = windData;
 
-    const { uMin, vMin, uMax, vMax } = windData;
-    data.speedMax = Math.sqrt(Math.max(uMax ** 2, uMin ** 2) + Math.max(vMax ** 2, vMin ** 2));
+    const { uMin, vMin, uMax, vMax } = data;
+
+    // Precompute actual theoretical max (not just based on the positive values)
+    data.speedMax = Math.sqrt(
+      Math.max(uMax ** 2, uMin ** 2) +
+      Math.max(vMax ** 2, vMin ** 2)
+    );
 
     dataCallbacks.forEach(cb => cb(data));
     requestsBeforeMetadataLoaded.forEach(tile => {
-      if (cache[tile]) {
+      if (cache[tile.key]) {
         let req;
-        while ((req = tileRequests[tile].pop())) {
+        while ((req = tileRequests[tile.key].pop())) {
           dispatchCallback(tile, req);
         }
       } else {
         load(tile);
       }
     });
-    requestsBeforeMetadataLoaded = [];
+    requestsBeforeMetadataLoaded.clear();
   });
 
   function dispatchCallback(tile: Tile, cb: TileCallback) {
-    cb(Object.assign(tile, { getTexture: cache[tile.toString()] }));
+    cb(Object.assign(tile, { getTexture: cache[tile.key] }));
   }
 
   function load(tile: Tile) {
@@ -102,13 +107,13 @@ export const createSource = (relUrl: string): WindSource => {
     windImage.src = tileUrl.toString();
     windImage.onload = () => {
       let texture: WebGLTexture | null;
-      cache[tile.toString()] = (gl: WebGLRenderingContext) => {
+      cache[tile.key] = (gl: WebGLRenderingContext) => {
         if (texture) return texture;
         texture = util.createTexture(gl, gl[filter], windImage);
         return texture;
       };
       let req;
-      while ((req = tileRequests[tile.toString()].pop())) {
+      while ((req = tileRequests[tile.key].pop())) {
         dispatchCallback(tile, req);
       }
     };
@@ -140,18 +145,18 @@ export const createSource = (relUrl: string): WindSource => {
       }
     },
     loadTile(tile, cb) {
-      if (cache[tile.toString()]) {
+      if (cache[tile.key]) {
         dispatchCallback(tile, cb);
       } else {
         if (data) {
-          if (tileRequests[tile.toString()]) {
-            tileRequests[tile.toString()].push(cb);
+          if (tileRequests[tile.key]) {
+            tileRequests[tile.key].push(cb);
           } else {
-            tileRequests[tile.toString()] = [cb];
+            tileRequests[tile.key] = [cb];
             load(tile);
           }
         } else {
-          tileRequests[tile.toString()] = (tileRequests[tile.toString()] || []).concat([cb]);
+          tileRequests[tile.key] = (tileRequests[tile.key] || []).concat([cb]);
           (requestsBeforeMetadataLoaded as Set<Tile>).add(tile);
         }
       }

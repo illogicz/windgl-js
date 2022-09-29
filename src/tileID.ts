@@ -21,10 +21,7 @@ export type Tile = {
 };
 
 export const tile = (z: number, x: number, y: number, wrap = 0): Tile => ({
-  z,
-  x,
-  y,
-  wrap,
+  z, x, y, wrap,
   key: `${z}/${x}/${y}`,
   toString() { return this.key },
   parent() {
