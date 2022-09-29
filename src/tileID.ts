@@ -1,10 +1,12 @@
 const tile2WSG84 = (c: number, z: number) => c / Math.pow(2, z);
 
 export type Tile = {
-  z: number;
-  x: number;
-  y: number;
-  wrap: number;
+  readonly z: number;
+  readonly x: number;
+  readonly y: number;
+  readonly wrap: number;
+  readonly key: string;
+
   toString(): string;
   parent(): Tile;
   children(): Tile[];
@@ -18,14 +20,13 @@ export type Tile = {
   getTexture?: (gl: WebGLRenderingContext) => WebGLTexture
 };
 
-const tile = (z: number, x: number, y: number, wrap = 0): Tile => ({
+export const tile = (z: number, x: number, y: number, wrap = 0): Tile => ({
   z,
   x,
   y,
   wrap,
-  toString() {
-    return `${z}/${x}/${y}`;
-  },
+  key: `${z}/${x}/${y}`,
+  toString() { return this.key },
   parent() {
     if (z > 0) return tile(z - 1, x >> 1, y >> 1, wrap);
     else return tile(z, x, y, wrap);
@@ -88,5 +89,3 @@ const tile = (z: number, x: number, y: number, wrap = 0): Tile => ({
     return [x % 2, y % 2];
   }
 });
-
-export default tile;

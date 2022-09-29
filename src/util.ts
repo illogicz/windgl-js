@@ -26,7 +26,7 @@ export function createProgram(gl: WebGLRenderingContext, vertexSource: string, f
     throw new Error(gl.getProgramInfoLog(program) ?? "");
   }
 
-  const wrapper: Record<string, any> = { program: program };
+  const wrapper: Record<string, number | WebGLUniformLocation | null> = { program: program };
 
   const numAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
   for (let i = 0; i < numAttributes; i++) {
@@ -45,7 +45,7 @@ export function createProgram(gl: WebGLRenderingContext, vertexSource: string, f
 export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array, width: number, height: number): WebGLTexture;
 export function createTexture(gl: WebGLRenderingContext, filter: number, data: TexImageSource): WebGLTexture;
 export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array | TexImageSource, width?: number, height?: number) {
-  const texture = gl.createTexture();
+  const texture = gl.createTexture()
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);

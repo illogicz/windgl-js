@@ -21,6 +21,7 @@ uniform sampler2D u_color_ramp;
 uniform vec2 u_wind_res;
 uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
+uniform float u_speed_max;
 uniform float u_rand_seed;
 uniform float u_speed_factor;
 uniform float u_drop_rate;
@@ -129,7 +130,7 @@ export void particleDrawVertex() {
         fract(a_index / u_particles_res),
         floor(a_index / u_particles_res) / u_particles_res));
 
-    // decode current particle position from the pixel's RGBA value
+    // decode current particle position from the pixel's RBGA value
     vec2 relativeCoordsWGS84 = vec2(
         color.r / 255.0 + color.b,
         color.g / 255.0 + color.a);
@@ -146,12 +147,9 @@ export void particleDrawVertex() {
 
 export void particleDrawFragment() {
     vec2 velocity = mix(u_wind_min, u_wind_max, windTexture(transform(v_particle_pos, u_data_matrix)));
-    float speed_t = length(velocity) / length(u_wind_max);
+    float speed_t = length(velocity) / u_speed_max;
 
-    // // color ramp is encoded in a 16x16 texture
-    vec2 ramp_pos = vec2(
-        fract(16.0 * speed_t),
-        floor(16.0 * speed_t) / 16.0);
+    vec2 ramp_pos = vec2(speed_t, 0.5);
 
     gl_FragColor = texture2D(u_color_ramp, ramp_pos);
 }

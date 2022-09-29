@@ -49,12 +49,6 @@ export void sampleFillFragment() {
     vec2 localWGS84 = transform(globalWGS84, u_offset_inverse);
     float speed_t = windSpeedMagnitude(localWGS84);
 
-
-    // color ramp is./ encoded in a 16x16 texture
-    // vec2 ramp_pos = vec2(
-    //     fract(16.0 * speed_t),
-    //     floor(16.0 * speed_t) / 16.0);
-
     // EDIT: 256x1 instead, avoiding vertical interpolation issues
     vec2 ramp_pos = vec2(speed_t, 0.5);
 

@@ -20,6 +20,8 @@ type TileCallback = (tile: Tile) => void;
 type MetaCallback = (data: WindSourceSpec) => void;
 
 export interface WindSource {
+  getFilter(): TextureFilter;
+  setFilter(f: TextureFilter, gl?: WebGLRenderingContext): void;
   metadata(cb: MetaCallback): void;
   unlisten(cb: MetaCallback): void;
   loadTile(tile: Tile, cb: TileCallback): void;
@@ -34,12 +36,15 @@ export interface WindSourceSpec {
   uMax: number;
   vMin: number;
   vMax: number;
+  speedMax: number;
   minzoom: number;
   maxzoom: number;
   tiles: string[];
 }
 
-export default (relUrl: string): WindSource => {
+export type TextureFilter = "LINEAR" | "NEAREST";
+
+export const createSource = (relUrl: string): WindSource => {
   const url = new URL(relUrl, window.location as any);
   /**
    * A note on how this works:
@@ -56,9 +61,14 @@ export default (relUrl: string): WindSource => {
   let requestsBeforeMetadataLoaded: Set<any> | any[] = new Set();
   let cache: Record<string, (gl: WebGLRenderingContext) => WebGLTexture> = {};
   let dataCallbacks: MetaCallback[] = [];
+  let filter: TextureFilter = "LINEAR";
 
   getJSON(url, (windData: WindSourceSpec) => {
     data = windData;
+
+    const { uMin, vMin, uMax, vMax } = windData;
+    data.speedMax = Math.sqrt(Math.max(uMax ** 2, uMin ** 2) + Math.max(vMax ** 2, vMin ** 2));
+
     dataCallbacks.forEach(cb => cb(data));
     requestsBeforeMetadataLoaded.forEach(tile => {
       if (cache[tile]) {
@@ -94,7 +104,7 @@ export default (relUrl: string): WindSource => {
       let texture: WebGLTexture | null;
       cache[tile.toString()] = (gl: WebGLRenderingContext) => {
         if (texture) return texture;
-        texture = util.createTexture(gl, gl.LINEAR, windImage);
+        texture = util.createTexture(gl, gl[filter], windImage);
         return texture;
       };
       let req;
@@ -105,6 +115,20 @@ export default (relUrl: string): WindSource => {
   }
 
   return {
+    getFilter() { return filter },
+    setFilter(f: TextureFilter, gl?: WebGLRenderingContext) {
+      filter = f;
+      if (!gl) return;
+      const pname = gl[filter];
+      Object.values(cache).forEach(tile => {
+        const texture = tile(gl);
+        if (!texture) return;
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, pname);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, pname);
+      })
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    },
     unlisten(cb) {
       dataCallbacks = dataCallbacks.filter(c => c !== cb);
     },

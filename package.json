@@ -1,15 +1,18 @@
 {
   "name": "windgl-js",
-  "version": "0.1.2",
+  "version": "0.1.0",
   "description": "A MapboxGL plugin for animated GRIB data visualization (based on @astrosat/windgl)",
-  "main": "dist/index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist",
   "files": [
-    "dist"
+    "./dist"
   ],
   "scripts": {
     "prepublishOnly": "npm run build",
     "build": "rollup -c",
     "watch": "rollup -c -w",
+    "data": "python data/gfswind2png.py --timestamp 2022092800 --output_dir /enose/vis/public/static/wind/wind",
     "test": "if test \"$CI\" = 'true' || test \"$TRAVIS\" = 'true'; then \n  eslint src && jest \nelse jest --watch \nfi",
     "serve": "st -nc -i index.html",
     "start": "run-p  serve watch"

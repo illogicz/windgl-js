@@ -42,7 +42,7 @@ function makeGLSL(userOptions = {}) {
         disableRewriting: false,
         format: "json",
         keepSymbols: false,
-        prettyPrint: false,
+        prettyPrint: true,
         renaming: "internal-only"
       });
 
@@ -122,24 +122,29 @@ function makeGLSL(userOptions = {}) {
 const plugins = [
   {
     name: 'watch-external',
-    async buildStart(){
-        const files = await fg('src/**/*');
-        for(let file of files){
-            this.addWatchFile(file);
-        }
+    async buildStart() {
+      const files = await fg('src/**/*');
+      for (let file of files) {
+        console.log(file);
+        this.addWatchFile(file);
+      }
     }
   },
   makeGLSL({ include: "./src/shaders/*.glsl" }),
   resolve(),
   commonjs(),
-  typescript({ 
+  typescript({
     sourceMap: true
-   }),
+  }),
 ];
 
 export default [
   {
     input: "src/index.ts",
+    watch: {
+      clearScreen: false,
+      include: 'src/**/*',
+    },
     output: [
       // {
       //   file: pkg.main,

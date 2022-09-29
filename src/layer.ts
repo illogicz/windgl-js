@@ -1,8 +1,8 @@
 import * as styleSpec from "@maplibre/maplibre-gl-style-spec";
 import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
-import type { WindSource, WindSourceSpec } from "./source";
-import tileID, { Tile } from "./tileID";
+import type { TextureFilter, WindSource, WindSourceSpec } from "./source";
+import { tile, Tile } from "./tileID";
 import * as util from "./util";
 
 type PropertySpecs<Props extends string> = {
@@ -26,7 +26,7 @@ export type LayerOptions<Props extends string> = mb.LayerSpecification & { sourc
  * This is an abstract base class that handles most of the mapbox specific
  * stuff as well as a lot of the bookkeeping.
  */
-export default abstract class Layer<Props extends string> implements mb.CustomLayerInterface {
+export abstract class WindGlLayer<Props extends string> implements mb.CustomLayerInterface {
   constructor(propertySpec: PropertySpecs<Props>, { id, source, ...options }: LayerOptions<Props>) {
     this.id = id;
     this.type = "custom";
@@ -74,6 +74,11 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
 
   //[prop: string]: any;
 
+  setFilter(f: TextureFilter) {
+    this.source.setFilter(f, this.gl);
+    this.map?.triggerRepaint();
+  }
+
   /**
    * Update a property using a mapbox style epxression.
    */
@@ -81,7 +86,7 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
     const spec = this.propertySpec[prop];
     if (!spec) return;
     const expr = styleSpec.expression.createPropertyExpression(value, spec);
-    console.log(prop, expr)
+    //console.log(prop, expr)
     if (expr.result === "success") {
       switch (expr.value.kind) {
         case "camera":
@@ -114,7 +119,7 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
       //@ts-ignore
       this[setterName](value);
       //@ts-ignore
-      console.log("execute", `${setterName}(${value})`, this[setterName])
+      //console.log("execute", `${setterName}(${value})`, this[setterName])
     } else {
       const setterName = name[0].toLowerCase() + name.slice(1);
       const zoom = (this.map && this.map.getZoom());
@@ -122,9 +127,9 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
       this[setterName] = value.evaluate({
         zoom: zoom ?? 1 // EDIT "?? 1"
       });
-      console.log("create", `value.evaluate({ zoom:${zoom} ?? 1})`);
+      //console.log("create", `value.evaluate({ zoom:${zoom} ?? 1})`);
       //@ts-ignore
-      console.log(`this.${setterName} = ${this[setterName]}`, value)
+      //console.log(`this.${setterName} = ${this[setterName]}`, value)
     }
   }
 
@@ -168,14 +173,7 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
     );
   }
 
-  // data management
-  setWind(windData: WindSourceSpec) {
-    this.windData = windData;
-    if (this.map) {
-      this._initialize(this.map);
-      this.map.triggerRepaint();
-    }
-  }
+
 
   computeVisibleTiles(pixelToGridRatio: number, tileSize: number, { maxzoom, minzoom }: { maxzoom: number, minzoom: number; }) {
 
@@ -214,7 +212,7 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
           properX += tileCount;
         }
         tiles.push(
-          tileID(dataZoom, properX, y, Math.floor(x / tileCount))
+          tile(dataZoom, properX, y, Math.floor(x / tileCount))
         );
       }
     }
@@ -247,6 +245,15 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
     this.source.unlisten(this.setWind);
   }
 
+  // data management
+  setWind(windData: WindSourceSpec) {
+    this.windData = windData;
+    if (this.map) {
+      this._initialize(this.map);
+      this.map.triggerRepaint();
+    }
+  }
+
   // This will be called when we have everything we need:
   // the gl context and the data
   // we will call child classes `initialize` as well as do a bunch of
@@ -258,6 +265,7 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
     });
     this._propsOnInit = {};
     this.zoom();
+    this.move();
     map.on("zoom", this.zoom);
     map.on("move", this.move);
   }
@@ -302,7 +310,6 @@ export default abstract class Layer<Props extends string> implements mb.CustomLa
         Math.min(this.windData.width, this.windData.height),
         this.windData
       ).forEach(tile => {
-        //console.log("visibleTile", tile)
         const texture = this._tiles[tile.toString()];
         if (!texture) return;
         this.draw(gl, matrix, texture, tile.viewMatrix());

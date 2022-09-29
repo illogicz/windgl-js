@@ -1,4 +1,4 @@
-import Layer, { LayerOptions } from "./layer";
+import { WindGlLayer, LayerOptions } from "./layer";
 import * as util from "./util";
 
 import type * as mb from "maplibre-gl";
@@ -9,7 +9,7 @@ import { Tile } from "./tileID";
 export type SampleFillProps = "sample-fill-color" | "sample-opacity";
 export type SampleFillOptions = LayerOptions<SampleFillProps>
 
-class SampleFill extends Layer<SampleFillProps> {
+export class SampleFill extends WindGlLayer<SampleFillProps> {
   constructor(options: SampleFillOptions) {
     super(
       {
@@ -71,9 +71,8 @@ class SampleFill extends Layer<SampleFillProps> {
       },
       options
     );
-    this.pixelToGridRatio = 1;
-
   }
+  pixelToGridRatio = 1;
   backgroundProgram!: any;
   quadBuffer: WebGLBuffer | null = null;
   sampleOpacity!: number;
@@ -132,19 +131,14 @@ class SampleFill extends Layer<SampleFillProps> {
       util.matrixInverseTyped(offset)
     )
 
-    // EDIT: Not just max possitive value, but also absolute value in negative direction for max speed.
-    // Actual max speed is still just a guess, would need to check on a per pixel basis, not worth it.
-    const { uMin, vMin, uMax, vMax } = this.windData;
-    const maxSpeed = Math.sqrt(Math.max(uMax ** 2, uMin ** 2) + Math.max(vMax ** 2, vMin ** 2));
+    const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;
 
-    gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
+    gl.uniform2f(program.u_wind_res, width, height);
     gl.uniform2f(program.u_wind_min, uMin, vMin);
     gl.uniform2f(program.u_wind_max, uMax, vMax);
-    gl.uniform1f(program.u_speed_max, maxSpeed); //
+    gl.uniform1f(program.u_speed_max, speedMax); //
     gl.uniformMatrix4fv(program.u_matrix, false, matrix);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 }
-
-export default (options: SampleFillOptions) => new SampleFill(options);

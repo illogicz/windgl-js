@@ -47,7 +47,7 @@ def download_data(filename, product, timestamp):
     url = (
         f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_{product}.pl?"
         f"file=gfs.t{timestamp[-2:]}z.pgrb2{full}.{product}.f000"
-        f"&lev_10_m_above_ground=on&var_UGRD=on&var_VGRD=on&leftlon=0"
+        f"&lev_10_m_above_ground=on&var_UGRD=on&var_VGRD=on&subregion=&leftlon=0"
         f"&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{timestamp[:-2]}%2F{timestamp[-2:]}%2Fatmos"
     )
 
@@ -72,7 +72,7 @@ def prepare_array(bands):
     bands = bands[:, :-1, :]
 
     # Convert coverage from 0->360 to -180->180
-    bands = np.roll(bands, int(0.5 * bands.shape[2]), 2)
+    #bands = np.roll(bands, int(0.5 * bands.shape[2]), 2)
 
     # rescale values from floats to uint8
     for i in range(0, bands.shape[0]):
@@ -194,6 +194,6 @@ if __name__ == "__main__":
     json_output = build_meta_json(args.timestamp, **tilejson_variables)
     write_json(os.path.join(args.output_dir, args.timestamp), json_output)
 
-    if args.clean:
-        for f in glob.glob(os.path.join(args.output_dir, "*.grb")):
-            os.remove(f)
+    # if args.clean:
+    for f in glob.glob(os.path.join(args.output_dir, "*.grb")):
+        os.remove(f)

@@ -6,11 +6,10 @@ const float PI = 3.14159265359;
  * spans the entire world).
  */
  vec2 wgs84ToMercator(vec2 xy) {
-    // convert to angle
-    // use the formule to convert
-    //float y = 0.5 - log(tan((1.0-xy.y) * PI_2)) / (PI * 2.0);
-    float y = xy.y == 0.0 ? 0.0 : xy.y == 1.0 ? 1.0 : (1.0 - log(tan((1.0-xy.y) * PI / 2.0)) / PI) / 2.0;
-    // pass x through, as it doesn't change
+
+    float y = xy.y == 0.0 ? 0.0 : 
+              xy.y == 1.0 ? 1.0 : 
+              (1.0 - log(tan((1.0-xy.y) * PI / 2.0)) / PI) / 2.0;
     return vec2(xy.x, y);
 }
 

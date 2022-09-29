@@ -6,6 +6,7 @@ uniform sampler2D u_wind;
 uniform vec2 u_wind_res;
 uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
+uniform float u_speed_max;
 uniform mat4 u_offset;
 uniform sampler2D u_color_ramp;
 uniform vec4 u_halo_color;
@@ -43,11 +44,12 @@ export void arrowVertex() {
     vec2 unit = 0.45 / u_dimensions;
     vec2 pos = mod(a_pos / u_dimensions, vec2(1,1));
 
+
     vec2 speed = windSpeed(pos);
-    v_speed = length(speed) / length(u_wind_max);
+    v_speed = length(speed) / u_speed_max;
     float angle = atan(speed.x, speed.y);
     v_center = a_corner;
-    v_size = length(speed) / length(u_wind_max);
+    v_size = length(speed) / u_speed_max;
 
     pos += rotation(angle) *  a_corner * unit;
     // Fix proportions from rectangular projection to square
@@ -88,8 +90,8 @@ mat3 translate(vec2 _translate) {
 
 float arrow(vec3 st, float len) {
     return min(
-        polygon(st* scale(vec2(0.3)), 3),
-        polygon(st* translate(vec2(-0.00, len / 2.0)) * scale(vec2(0.2, len)), 4)
+        polygon(st * scale(vec2(0.3)), 3),
+        polygon(st * translate(vec2(-0.00, len / 2.0)) * scale(vec2(0.2, len)), 4)
     );
 }
 
@@ -100,10 +102,11 @@ export void arrowFragment() {
 
     float inside = 1.0 - smoothstep(0.4, 0.405, d);
     float halo = (1.0 - smoothstep(0.43, 0.435, d)) - inside;
-    vec2 ramp_pos = vec2(
-        fract(16.0 * v_speed),
-        floor(16.0 * v_speed) / 16.0);
 
+ 
+    // EDIT: 256x1 instead, avoiding vertical interpolation issues
+    vec2 ramp_pos = vec2(v_speed, 0.5);
+    
     vec4 color = texture2D(u_color_ramp, ramp_pos);
     gl_FragColor = color * inside + halo * u_halo_color;
 }

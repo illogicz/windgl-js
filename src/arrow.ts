@@ -1,14 +1,14 @@
 import * as util from "./util";
-import Layer, { LayerConfig, LayerOptions } from "./layer";
+import { WindGlLayer, LayerOptions } from "./layer";
 import { arrow } from "./shaders/arrow.glsl";
-import type * as mb from "maplibre-gl";
 import { Tile } from "./tileID";
-
+//
+import type * as mb from "maplibre-gl";
 export type ArrowProps = "arrow-min-size" | "arrow-color" | "arrow-halo-color";
 export type ArrowOptions = LayerOptions<ArrowProps>
 
 
-class Arrows extends Layer<ArrowProps> {
+export class Arrows extends WindGlLayer<ArrowProps> {
   constructor(options: ArrowOptions) {
     super(
       {
@@ -16,7 +16,7 @@ class Arrows extends Layer<ArrowProps> {
           type: "number",
           //minimum: 1,
           transition: true,
-          default: 40,
+          default: 10,
           expression: {
             interpolated: true,
             parameters: ["zoom"]
@@ -37,7 +37,7 @@ class Arrows extends Layer<ArrowProps> {
         },
         "arrow-halo-color": {
           type: "color",
-          default: "rgba(0,0,0,0)",
+          default: "rgba(255,255,255,1)",
           transition: true,
           overridable: true,
           expression: {
@@ -49,7 +49,7 @@ class Arrows extends Layer<ArrowProps> {
       },
       options
     );
-    this.pixelToGridRatio = 25;
+    this.pixelToGridRatio = 10;
   }
 
   private arrowsProgram!: GlslProgram;
@@ -72,7 +72,7 @@ class Arrows extends Layer<ArrowProps> {
   }
 
   setArrowColor(expr: mb.StylePropertyExpression) {
-    this.buildColorRamp(expr);
+    this.buildColorRamp(expr, 256);
   }
 
   initializeGrid() {
@@ -138,9 +138,12 @@ class Arrows extends Layer<ArrowProps> {
     );
     gl.uniform2f(program.u_dimensions, cols, rows);
 
-    gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
-    gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-    gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+    const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;
+
+    gl.uniform2f(program.u_wind_res, width, height);
+    gl.uniform2f(program.u_wind_min, uMin, vMin);
+    gl.uniform2f(program.u_wind_max, uMax, vMax);
+    gl.uniform1f(program.u_speed_max, speedMax); //
     gl.uniformMatrix4fv(program.u_offset, false, offset);
     gl.uniform4f(
       program.u_halo_color,
@@ -156,5 +159,3 @@ class Arrows extends Layer<ArrowProps> {
     gl.drawArrays(gl.TRIANGLES, 0, this.rows * Math.floor(cols) * 6);
   }
 }
-
-export default (options: ArrowOptions) => new Arrows(options);

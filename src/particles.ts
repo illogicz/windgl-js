@@ -1,6 +1,6 @@
 import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
-import Layer, { LayerOptions } from "./layer";
+import { WindGlLayer, LayerOptions } from "./layer";
 import * as util from "./util";
 
 import {
@@ -46,7 +46,7 @@ export type ParticleOptions = LayerOptions<ParticleProps>
  *    are read from the texture and are projected into pseudo-mercator coordinates
  *    and their final position is computed based on the map viewport.
  */
-class Particles extends Layer<ParticleProps> {
+export class Particles extends WindGlLayer<ParticleProps> {
   constructor(options: ParticleOptions) {
     super(
       {
@@ -76,7 +76,7 @@ class Particles extends Layer<ParticleProps> {
       options
     );
 
-    this.pixelToGridRatio = 20;
+    this.pixelToGridRatio = 2;
     this.tileSize = 1024;
 
     this.dropRate = 0.01; // how often the particles move to a random place
@@ -115,14 +115,14 @@ class Particles extends Layer<ParticleProps> {
   private _particleTiles: Record<string, ParticleTile>;
 
   visibleParticleTiles() {
-    return this.computeVisibleTiles(2, this.tileSize, {
+    return this.computeVisibleTiles(this.pixelToGridRatio, this.tileSize, {
       minzoom: 0, // 2
       maxzoom: this.windData.maxzoom + 3 // 5
     });
   }
 
   setParticleColor(expr: mb.StylePropertyExpression) {
-    this.buildColorRamp(expr);
+    this.buildColorRamp(expr, 256);
   }
 
   initializeParticleTile() {
@@ -363,9 +363,16 @@ class Particles extends Layer<ParticleProps> {
     util.bindAttribute(gl, this.quadBuffer!, program.a_pos, 2);
 
     gl.uniform1f(program.u_rand_seed, Math.random());
-    gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
-    gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-    gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+    // gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
+    // gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
+    // gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+    const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;
+
+    gl.uniform2f(program.u_wind_res, width, height);
+    gl.uniform2f(program.u_wind_min, uMin, vMin);
+    gl.uniform2f(program.u_wind_max, uMax, vMax);
+    gl.uniform1f(program.u_speed_max, speedMax); //
+
     gl.uniform1f(program.u_speed_factor, this.particleSpeed);
     gl.uniform1f(program.u_drop_rate, this.dropRate);
     gl.uniform1f(program.u_drop_rate_bump, this.dropRateBump);
@@ -449,5 +456,3 @@ class Particles extends Layer<ParticleProps> {
     //gl.flush();
   }
 }
-
-export default (options: ParticleOptions) => new Particles(options);
