@@ -23,48 +23,19 @@ optional arguments:
 """
 
 
+from math import ceil, log2
 import os
 import pathlib
 import json
 import argparse
 import glob
 from datetime import datetime
-import time
 
-import requests
-from requests import HTTPError
+#from planar import Affine
 import numpy as np
 import rasterio
 from rasterio.plot import reshape_as_image
-from PIL import Image
-
-
-def download_data(filename, product, timestamp):
-    if product == "0p50":
-        full = "full"
-    else:
-        full = ""
-
-    url = (
-        f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_{product}.pl?"
-        f"file=gfs.t{timestamp[-2:]}z.pgrb2{full}.{product}.f000"
-        f"&lev_10_m_above_ground=on&var_UGRD=on&var_VGRD=on&leftlon=0"
-        f"&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{timestamp[:-2]}%2F{timestamp[-2:]}%2Fatmos"
-    )
-
-    try:
-        r = requests.get(url)
-        r.raise_for_status()
-    except HTTPError as e:
-        raise HTTPError("Something went wrong with the data download.") from e
-
-    with open(filename, "wb") as f:
-        f.write(r.content)
-
-
-def import_data(filename):
-    with rasterio.open(filename) as src:
-        return src.read()
+from PIL import Image, ImageDraw
 
 
 def prepare_array(bands):
@@ -92,31 +63,43 @@ def prepare_array(bands):
     return bands
 
 
-def build_meta_json(data_dir, datetime, width, height, umin, umax, vmin, vmax):
+def base_json(datetime, width, height, bounds, umin, umax, vmin, vmax):
     return {
-        "source": "http://nomads.ncep.noaa.gov",
         "date": datetime,
         "width": width,
         "height": height,
+        "bounds": bounds,
         "uMin": round(umin, 2),
         "uMax": round(umax, 2),
         "vMin": round(vmin, 2),
-        "vMax": round(vmax, 2),
-        "minzoom": 0,
-        "maxzoom": 2,
-        "tiles": [f"{{z}}/{{x}}/{{y}}.png"],
+        "vMax": round(vmax, 2)
     }
 
 
-def write_json(data_dir, json_output):
-    with open(os.path.join(data_dir, "tile.json"), "w") as f:
+def build_tile_json(base, minzoom, maxzoom):
+    return dict(base, {
+        "minzoom": minzoom,
+        "maxzoom": maxzoom,
+        "tiles": [f"{{z}}/{{x}}/{{y}}.png"],
+    })
+
+
+def build_image_json(base, path, transform):
+    return dict(base, {
+        "transform": transform,
+        "image": path
+    })
+
+
+def write_json(data_dir, name, json_output):
+    with open(os.path.join(data_dir, "{name}.json"), "w") as f:
         f.write(json.dumps(json_output))
 
 
-def write_image(filename, image):
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    im = Image.fromarray(image)
-    im.save(filename)
+def write_image(base_dir, filename, image):
+    path = os.path.join(base_dir, filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    image.save(path)
 
 
 def slice_image(image, start_y, end_y, start_x, end_x):
@@ -129,7 +112,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--timestamp",
         type=str,
-        required=True,
+        default="2022093012",
+        required=False,
         help="Enter timestamp in YYYYMMDDhh format. hh must be 00, 06, 12, 18",
     )
 
@@ -152,52 +136,68 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    tilejson_variables = {}
-
-    height = 180
-    width = 360
-
-    tilejson_variables["height"] = height
-    tilejson_variables["width"] = width
-
     try:
-        tilejson_variables["datetime"] = datetime.strptime(
+        date_time = datetime.strptime(
             f"{args.timestamp}+0000", "%Y%m%d%H%z"
         ).isoformat()
     except ValueError as e:
         raise ValueError("Invalid timestamp entered.") from e
-    totalTime = 0
-    for product, zoom in [("1p00", 0), ("0p50", 1), ("0p25", 2)]:
-        filename = os.path.join(
-            args.output_dir, f"{args.timestamp}_{product}.grb")
 
-        # TODO: can probably streamline these steps without saving intermediary files
-        download_data(filename, product, args.timestamp)
-        start = time.time()
-        bands = import_data(filename)
+    filename = f"data/NL_{args.timestamp}00.grb"
+    imagename = f"NL_{args.timestamp}00.png"
+    directory = os.path.join(args.output_dir, args.timestamp)
 
-        tilejson_variables["umin"] = bands[0, :, :].min()
-        tilejson_variables["umax"] = bands[0, :, :].max()
-        tilejson_variables["vmin"] = bands[1, :, :].min()
-        tilejson_variables["vmax"] = bands[1, :, :].max()
+    src = rasterio.open(filename)
+    bands = src.read()
+    minRes = min(src.res)
+    minzoom = 0
+    maxzoom = ceil(log2(1/minRes))
+    tileHeight = 180
+    tileWidth = 360
 
-        bands = prepare_array(bands)
+    json_variables = {
+        "date": date_time,
+        "uMin": round(bands[0, :, :].min(), 2),
+        "uMax": round(bands[0, :, :].max(), 2),
+        "vMin": round(bands[1, :, :].min(), 2),
+        "vMax": round(bands[1, :, :].max(), 2),
+        "bounds": src.bounds,
 
-        image = reshape_as_image(bands)
+        "tileHeight": tileHeight,
+        "tileWidth": tileWidth,
+        "minzoom": minzoom,
+        "maxzoom": maxzoom,
+        "tiles": [f"{{z}}/{{x}}/{{y}}.png"],
 
-        for x in range(2 ** zoom):
-            for y in range(2 ** zoom):
+        "width": src.width,
+        "height": src.height,
+        "transform": src.transform,
+        "image": imagename
+    }
+
+    bands = reshape_as_image(prepare_array(bands))
+    image = Image.fromarray(bands)
+    write_image(directory, imagename, image)
+
+    tileImage = Image.new("RGBA", (tileWidth, tileHeight), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(tileImage)
+
+    for zoom in range(maxzoom + 1):
+        b = src.bounds.mul(2 ** zoom)
+        for x in range(2 ** maxzoom):
+            for y in range(2 ** maxzoom):
                 filename = os.path.join(
-                    args.output_dir, args.timestamp, str(zoom), str(x), f"{y}.png")
+                    directory, str(zoom), str(x), f"{y}.png")
+                draw.rectangle((0, 0, tileWidth, tileHeight),
+                               fill=(0, 0, 0, 0))
+                tileImage.paste(image, src.bounds)
                 image_cut = slice_image(
-                    image, y * height, (y + 1) * height, x * width, (x + 1) * width)
+                    image, y * tileHeight, (y + 1) * tileHeight, x * tileWidth, (x + 1) * tileWidth)
                 write_image(filename, image_cut)
-        totalTime += time.time() - start
-    json_output = build_meta_json(args.timestamp, **tilejson_variables)
+
+    json_output = build_tile_json(args.timestamp, **json_variables)
     write_json(os.path.join(args.output_dir, args.timestamp), json_output)
 
     if args.clean:
         for f in glob.glob(os.path.join(args.output_dir, "*.grb")):
             os.remove(f)
-
-    print(totalTime)

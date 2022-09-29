@@ -72,12 +72,13 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   private _propsOnInit: Partial<Record<Props, mb.ConstantExpression | mb.SourceExpression>>;
   protected _tiles: Record<string, Tile>;
 
-  //[prop: string]: any;
 
   setFilter(f: TextureFilter) {
     this.source.setFilter(f, this.gl);
     this.map?.triggerRepaint();
   }
+
+  readonly triggerRepaint = () => this.map?.triggerRepaint();
 
   /**
    * Update a property using a mapbox style epxression.
@@ -100,7 +101,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
           }
       }
     } else {
-      throw new Error(expr.value as any);
+      throw new Error(expr.value.join(","));
     }
   }
 
@@ -140,14 +141,16 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   // 256 possible speed values in the range of the dataset and storing
   // those in a 16x16 texture. The shaders than can simply pick the appropriate
   // pixel to determine the correct color.
-  buildColorRamp(expr: mb.StylePropertyExpression, width = 16, filter = this.gl!.LINEAR) {
+  buildColorRamp(expr: mb.StylePropertyExpression, width = 16, filter = this.gl.LINEAR) {
+
+    // Idealy always a 1 px texture width, unless interpolation is off.
     if (256 % width) throw new Error("color ramp width must be a factor of 256");
+
     const colors = new Uint8Array(256 * 4);
     let range = 1;
     if (expr.kind === "source" || expr.kind === "composite") {
-      const u = this.windData!.uMax - this.windData!.uMin;
-      const v = this.windData!.vMax - this.windData!.vMin;
-
+      const u = this.windData.uMax - this.windData.uMin;
+      const v = this.windData.vMax - this.windData.vMin;
       range = Math.sqrt(u * u + v * v);
     }
 
@@ -155,8 +158,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
       const color = expr.evaluate(
         expr.kind === "constant" || expr.kind === "source"
           ? {} as mb.GlobalProperties
-          //: { zoom: this.map.zoom },
-          : { zoom: this.map!.getZoom() }, // ?
+          : { zoom: this.map!.getZoom() },
         { properties: { speed: (i / 255) * range } } as unknown as mb.Feature
       );
       colors[i * 4 + 0] = color.r * 255;
@@ -165,7 +167,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
       colors[i * 4 + 3] = color.a * 255;
     }
     this.colorRampTexture = util.createTexture(
-      this.gl!,
+      this.gl,
       filter,
       colors,
       width,
@@ -174,8 +176,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   }
 
 
-
-  computeVisibleTiles(pixelToGridRatio: number, tileSize: number, { maxzoom, minzoom }: { maxzoom: number, minzoom: number; }) {
+  computeVisibleTiles(pixelToGridRatio: number, tileSize: number, { maxzoom, minzoom }: { maxzoom: number, minzoom: number }) {
 
     /* Orig
     const pixels = this.gl!.canvas.height * this.map!.getZoom();
@@ -186,8 +187,8 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
     );
     */
 
-    // Most sig diff should be ceil instead of floor for zoom level
-    const height = this.gl!.canvas.height;
+    // Slight change. only functional difference should be ceil instead of floor for zoom level
+    const height = this.gl.canvas.height;
     const nTiles = height / (tileSize * pixelToGridRatio);
     const tileZoom = Math.ceil(Math.log2(nTiles));
     const dataZoom = Math.max(minzoom, Math.min(maxzoom, tileZoom));
@@ -259,7 +260,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   // we will call child classes `initialize` as well as do a bunch of
   // stuff to get the properties in order
   _initialize(map: mb.Map) {
-    this.initialize(this.map!, this.gl);
+    this.initialize(map, this.gl);
     Object.entries(this._propsOnInit).forEach(([k, v]) => {
       this._setPropertyValue(k, v);
     });
@@ -291,19 +292,17 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   computeLoadableTiles() {
     return this.computeVisibleTiles(
       this.pixelToGridRatio,
-      Math.min(this.windData!.width, this.windData!.height),
-      this.windData!
+      Math.min(this.windData.width, this.windData.height),
+      this.windData
     );
   }
-
-
-
 
 
   //prerender?(gl: WebGLRenderingContext, matrix: mat4): void;
 
   // called by mapboxgl
   render(gl: WebGLRenderingContext, matrix: mat4) {
+    const tiles = new Set<Tile>();
     if (this.windData) {
       this.computeVisibleTiles(
         this.pixelToGridRatio, // cannot find where this is defined
@@ -312,8 +311,13 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
       ).forEach(tile => {
         const texture = this._tiles[tile.key];
         if (!texture) return;
+        tiles.add(tile)
         this.draw(gl, matrix, texture, tile.viewMatrix());
       });
     }
+
   }
+
+  onRenderTiles?: (tiles: Set<Tile>) => void;
+
 }

@@ -1,6 +1,8 @@
 function createShader(gl: WebGLRenderingContext, type: number, source: string) {
-  // EDIT (+!)
-  const shader = gl.createShader(type)!;
+
+  const shader = gl.createShader(type);
+  if (shader == null) throw new Error("Failed to create shader");
+
   gl.shaderSource(shader!, source);
 
   gl.compileShader(shader);
@@ -12,8 +14,10 @@ function createShader(gl: WebGLRenderingContext, type: number, source: string) {
 }
 
 export function createProgram(gl: WebGLRenderingContext, vertexSource: string, fragmentSource: string) {
-  // EDIT (+!)
-  const program = gl.createProgram()!;
+
+  const program = gl.createProgram();
+
+  if (program == null) throw new Error("Failed to create program");
 
   const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
   const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);

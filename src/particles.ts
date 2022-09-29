@@ -271,7 +271,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
     let t = tileID;
     let found;
     let matrix = new window.DOMMatrix();
-    while (true) { //!t.isRoot()) {
+    while (true) { //!t.isRoot()) { // EDIT: skipped if first tile is root?
       if ((found = this._tiles[t.key])) break;
       const [x, y] = t.quadrant();
       matrix.translateSelf(0.5 * x, 0.5 * y);
@@ -363,15 +363,14 @@ export class Particles extends WindGlLayer<ParticleProps> {
     util.bindAttribute(gl, this.quadBuffer!, program.a_pos, 2);
 
     gl.uniform1f(program.u_rand_seed, Math.random());
-    // gl.uniform2f(program.u_wind_res, this.windData.width, this.windData.height);
-    // gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
-    // gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+
     const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;
 
     gl.uniform2f(program.u_wind_res, width, height);
     gl.uniform2f(program.u_wind_min, uMin, vMin);
     gl.uniform2f(program.u_wind_max, uMax, vMax);
     gl.uniform1f(program.u_speed_max, speedMax); //
+    gl.uniform1i(program.u_bli_enabled, +this.source.bliEnabled);
 
     gl.uniform1f(program.u_speed_factor, this.particleSpeed);
     gl.uniform1f(program.u_drop_rate, this.dropRate);

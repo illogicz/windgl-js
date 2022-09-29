@@ -18,10 +18,13 @@ uniform sampler2D u_wind_bottom_right;
 
 uniform sampler2D u_color_ramp;
 
+
 uniform vec2 u_wind_res;
 uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
 uniform float u_speed_max;
+uniform bool u_bli_enabled;
+
 uniform float u_rand_seed;
 uniform float u_speed_factor;
 uniform float u_drop_rate;
@@ -74,10 +77,19 @@ vec2 windTexture(const vec2 uv) {
 
 #pragma glslify: lookup_wind = require(./bilinearWind, windTexture=windTexture, windRes=u_wind_res)
 
+vec2 windSpeed(const vec2 uv) {
+    return mix(u_wind_min, u_wind_max, 
+        u_bli_enabled 
+        ? lookup_wind(uv)
+        : windTexture(uv)
+    );
+}
+
 // This actually updates the position of a particle
 vec2 update(vec2 pos) {
     vec2 wind_tex_pos = transform(pos, u_data_matrix);
-    vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(wind_tex_pos));
+    vec2 velocity = windSpeed(wind_tex_pos);
+    //vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(wind_tex_pos));
     float speed_t = length(velocity) / length(u_wind_max);
 
     vec2 offset = vec2(velocity.x , -velocity.y) * 0.0001 * u_speed_factor;

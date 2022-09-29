@@ -9,10 +9,7 @@ const float PI = 3.14159265359;
 vec2 mercatorToWGS84(vec2 xy) {
     
     float yy = (xy.y * 2.0 - 1.0) * PI;
-    return vec2(
-        xy.x, 
-        atan(exp(yy)) * 2.0 / PI
-    );
+    return vec2(xy.x, atan(exp(yy)) * 2.0 / PI );
 }
 
 #pragma glslify: export(mercatorToWGS84)

@@ -136,6 +136,7 @@ export class Arrows extends WindGlLayer<ArrowProps> {
       this.cols,
       this.rows
     );
+    // TODO, fix projection distortion
     gl.uniform2f(program.u_dimensions, cols, rows);
 
     const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;

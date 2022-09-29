@@ -20,6 +20,7 @@ type TileCallback = (tile: Tile) => void;
 type MetaCallback = (data: WindSourceSpec) => void;
 
 export interface WindSource {
+  bliEnabled: boolean;
   getFilter(): TextureFilter;
   setFilter(f: TextureFilter, gl?: WebGLRenderingContext): void;
   metadata(cb: MetaCallback): void;
@@ -61,7 +62,9 @@ export const createSource = (relUrl: string): WindSource => {
   let requestsBeforeMetadataLoaded = new Set<Tile>();
   let dataCallbacks: MetaCallback[] = [];
   let cache: Record<string, (gl: WebGLRenderingContext) => WebGLTexture> = {};
+
   let filter: TextureFilter = "LINEAR";
+  let bilinear: boolean = true;
 
   getJSON(url, (windData: WindSourceSpec) => {
     data = windData;
@@ -133,6 +136,12 @@ export const createSource = (relUrl: string): WindSource => {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, pname);
       })
       gl.bindTexture(gl.TEXTURE_2D, null);
+    },
+    set bliEnabled(enabled: boolean) {
+      bilinear = enabled;
+    },
+    get bliEnabled() {
+      return bilinear;
     },
     unlisten(cb) {
       dataCallbacks = dataCallbacks.filter(c => c !== cb);

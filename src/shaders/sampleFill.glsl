@@ -12,9 +12,13 @@ uniform vec2 u_wind_res;
 uniform vec2 u_wind_min;
 uniform vec2 u_wind_max;
 uniform float u_speed_max;
+uniform bool u_bli_enabled;
+
 uniform float u_opacity;
 uniform sampler2D u_color_ramp;
 uniform mat4 u_inverse_matrix;
+
+
 
 attribute vec2 a_pos;
 
@@ -34,7 +38,11 @@ export void sampleFillVertex() {
 }
 
 vec2 windSpeed(const vec2 uv) {
-    return mix(u_wind_min, u_wind_max, windSpeedRelative(uv));
+    return mix(u_wind_min, u_wind_max, 
+        u_bli_enabled 
+        ? windSpeedRelative(uv)
+        : windTexture(uv)
+    );
 }
 
 /**

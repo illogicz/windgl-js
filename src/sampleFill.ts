@@ -137,6 +137,8 @@ export class SampleFill extends WindGlLayer<SampleFillProps> {
     gl.uniform2f(program.u_wind_min, uMin, vMin);
     gl.uniform2f(program.u_wind_max, uMax, vMax);
     gl.uniform1f(program.u_speed_max, speedMax); //
+    gl.uniform1i(program.u_bli_enabled, +this.source.bliEnabled);
+
     gl.uniformMatrix4fv(program.u_matrix, false, matrix);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
