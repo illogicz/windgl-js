@@ -115,7 +115,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
   private _particleTiles: Record<string, ParticleTile>;
 
   visibleParticleTiles() {
-    return this.computeVisibleTiles(this.pixelToGridRatio, this.tileSize, {
+    return this.computeVisibleTiles(this.pixelToGridRatio, [this.tileSize, this.tileSize], {
       minzoom: 0, // 2
       maxzoom: this.windData.maxzoom + 3 // 5
     });

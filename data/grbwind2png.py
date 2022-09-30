@@ -23,6 +23,7 @@ optional arguments:
 """
 
 
+import io
 from math import ceil, log2
 import os
 import pathlib
@@ -30,8 +31,9 @@ import json
 import argparse
 import glob
 from datetime import datetime
+from affine import Affine as af
 
-#from planar import Affine
+# from planar import Affine
 import numpy as np
 import rasterio
 from rasterio.plot import reshape_as_image
@@ -41,59 +43,29 @@ from PIL import Image, ImageDraw
 def prepare_array(bands):
     # Drop extra row in array
     # TODO: Something more elegant like interpolate rows
-    bands = bands[:, :-1, :]
 
     # Convert coverage from 0->360 to -180->180
-    #bands = np.roll(bands, int(0.5 * bands.shape[2]), 2)
+    # bands = np.roll(bands, int(0.5 * bands.shape[2]), 2)
 
+    zero = [0, 0, 255, 255]
     # rescale values from floats to uint8
     for i in range(0, bands.shape[0]):
-        bands[i] = (
-            255
-            * (bands[i] - bands[i].min())
-            / (bands[i].max() - bands[i].min())
-        )
+        def xform(v): return 255 * \
+            (v - bands[i].min()) / (bands[i].max() - bands[i].min())
+        zero[i] = np.uint8(xform(0))
+        bands[i] = xform(bands[i])
 
     # Build array in image format
     empty_band = np.zeros((1, bands.shape[1], bands.shape[2]))
 
     bands = np.concatenate((bands, empty_band), axis=0)
-    bands = bands.astype(np.uint8)
 
-    return bands
-
-
-def base_json(datetime, width, height, bounds, umin, umax, vmin, vmax):
-    return {
-        "date": datetime,
-        "width": width,
-        "height": height,
-        "bounds": bounds,
-        "uMin": round(umin, 2),
-        "uMax": round(umax, 2),
-        "vMin": round(vmin, 2),
-        "vMax": round(vmax, 2)
-    }
-
-
-def build_tile_json(base, minzoom, maxzoom):
-    return dict(base, {
-        "minzoom": minzoom,
-        "maxzoom": maxzoom,
-        "tiles": [f"{{z}}/{{x}}/{{y}}.png"],
-    })
-
-
-def build_image_json(base, path, transform):
-    return dict(base, {
-        "transform": transform,
-        "image": path
-    })
+    return (bands.astype(np.uint8), tuple(zero))
 
 
 def write_json(data_dir, name, json_output):
-    with open(os.path.join(data_dir, "{name}.json"), "w") as f:
-        f.write(json.dumps(json_output))
+    with open(os.path.join(data_dir, f"{name}.json"), "w") as f:
+        f.write(json.dumps(json_output, indent=4))
 
 
 def write_image(base_dir, filename, image):
@@ -112,7 +84,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--timestamp",
         type=str,
-        default="2022093012",
+        default="2022093011",  # 2022093011
         required=False,
         help="Enter timestamp in YYYYMMDDhh format. hh must be 00, 06, 12, 18",
     )
@@ -135,7 +107,6 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
     try:
         date_time = datetime.strptime(
             f"{args.timestamp}+0000", "%Y%m%d%H%z"
@@ -144,16 +115,19 @@ if __name__ == "__main__":
         raise ValueError("Invalid timestamp entered.") from e
 
     filename = f"data/NL_{args.timestamp}00.grb"
-    imagename = f"NL_{args.timestamp}00.png"
+    #filename = f"data/harmonie_xy_2022-09-28_06_nl.grb"
+    imagename = "full.png"
     directory = os.path.join(args.output_dir, args.timestamp)
 
-    src = rasterio.open(filename)
+    src: rasterio.DatasetReader = rasterio.open(filename)
     bands = src.read()
     minRes = min(src.res)
     minzoom = 0
     maxzoom = ceil(log2(1/minRes))
-    tileHeight = 180
+
     tileWidth = 360
+    tileHeight = 180
+    tileSize = (tileWidth, tileHeight)
 
     json_variables = {
         "date": date_time,
@@ -175,29 +149,53 @@ if __name__ == "__main__":
         "image": imagename
     }
 
-    bands = reshape_as_image(prepare_array(bands))
-    image = Image.fromarray(bands)
-    write_image(directory, imagename, image)
+    (array, zero) = prepare_array(bands)
+    img_array = reshape_as_image(array)
 
-    tileImage = Image.new("RGBA", (tileWidth, tileHeight), (0, 0, 0, 0))
+    # full image, store it
+    fullImage = Image.fromarray(img_array)
+    write_image(directory, imagename, fullImage)
+
+    # temp image to draw onto
+    tileImage = Image.new("RGBA", (tileWidth, tileHeight), zero)
     draw = ImageDraw.Draw(tileImage)
 
+    # empty image, store formated bytes
+    emptyImage = io.BytesIO()
+    tileImage.copy().save(emptyImage, "PNG")
+
+    bounds_n = [
+        af.translation(0.5, 0.5) * af.scale(1/360, -1/180) * p
+        for p in [(src.bounds.left, src.bounds.top), (src.bounds.right, src.bounds.bottom)]
+    ]
+
     for zoom in range(maxzoom + 1):
-        b = src.bounds.mul(2 ** zoom)
-        for x in range(2 ** maxzoom):
-            for y in range(2 ** maxzoom):
-                filename = os.path.join(
-                    directory, str(zoom), str(x), f"{y}.png")
-                draw.rectangle((0, 0, tileWidth, tileHeight),
-                               fill=(0, 0, 0, 0))
-                tileImage.paste(image, src.bounds)
-                image_cut = slice_image(
-                    image, y * tileHeight, (y + 1) * tileHeight, x * tileWidth, (x + 1) * tileWidth)
-                write_image(filename, image_cut)
+        scale = 2 ** zoom
 
-    json_output = build_tile_json(args.timestamp, **json_variables)
-    write_json(os.path.join(args.output_dir, args.timestamp), json_output)
+        (lt, rb) = [af.scale(scale) *
+                    af.scale(*tileSize) * p for p in bounds_n]
+        size = ceil(rb[0] - lt[0]), ceil(rb[1] - lt[1])
+        scaled = fullImage.resize(size, Image.Resampling.BICUBIC)
 
-    if args.clean:
-        for f in glob.glob(os.path.join(args.output_dir, "*.grb")):
-            os.remove(f)
+        for x in range(scale):
+            dir = os.path.join(directory, str(zoom), str(x))
+            os.makedirs(dir, exist_ok=True)
+            for y in range(scale):
+                (left, top, right, bottom) = map(round, np.array([
+                    af.translation(-x * 360, -y * 180) * c for c in (lt, rb)
+                ]).flatten())
+
+                filename = os.path.join(dir, f"{y}.png")
+                if left <= tileWidth and right >= 0 and top <= tileHeight and bottom >= 0:
+                    draw.rectangle((0, 0, tileWidth, tileHeight), fill=zero)
+                    tileImage.paste(scaled, (round(left), round(top)))
+                    tileImage.save(filename)
+                else:  # temporary, fill empty tiles, TODO, remove
+                    with open(filename, "wb") as f:
+                        f.write(emptyImage.getbuffer())
+
+    write_json(directory, "data", json_variables)
+
+    # if args.clean:
+    #     for f in glob.glob(os.path.join(args.output_dir, "*.grb")):
+    #         os.remove(f)

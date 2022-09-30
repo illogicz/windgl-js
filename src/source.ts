@@ -33,6 +33,8 @@ export interface WindSourceSpec {
   date: Date;
   width: number;
   height: number;
+  tileWidth: number;
+  tileHeight: number;
   uMin: number;
   uMax: number;
   vMin: number;
@@ -69,7 +71,9 @@ export const createSource = (relUrl: string): WindSource => {
   getJSON(url, (windData: WindSourceSpec) => {
     data = windData;
 
-    const { uMin, vMin, uMax, vMax } = data;
+    const { uMin, vMin, uMax, vMax, tileWidth, tileHeight } = data;
+    data.height = tileHeight;
+    data.width = tileWidth;
 
     // Precompute actual theoretical max (not just based on the positive values)
     data.speedMax = Math.sqrt(

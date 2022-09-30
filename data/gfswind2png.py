@@ -96,8 +96,8 @@ def build_meta_json(data_dir, datetime, width, height, umin, umax, vmin, vmax):
     return {
         "source": "http://nomads.ncep.noaa.gov",
         "date": datetime,
-        "width": width,
-        "height": height,
+        "tileWidth": width,
+        "tileHeight": height,
         "uMin": round(umin, 2),
         "uMax": round(umax, 2),
         "vMin": round(vmin, 2),

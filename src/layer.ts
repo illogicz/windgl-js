@@ -176,7 +176,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   }
 
 
-  computeVisibleTiles(pixelToGridRatio: number, tileSize: number, { maxzoom, minzoom }: { maxzoom: number, minzoom: number }) {
+  computeVisibleTiles(pixelToGridRatio: number, tileSize: [number, number], { maxzoom, minzoom }: { maxzoom: number, minzoom: number }) {
 
     /* Orig
     const pixels = this.gl!.canvas.height * this.map!.getZoom();
@@ -187,11 +187,9 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
     );
     */
 
-    // Slight change. only functional difference should be ceil instead of floor for zoom level
-    const height = this.gl.canvas.height;
-    const nTiles = height / (tileSize * pixelToGridRatio);
-    const tileZoom = Math.ceil(Math.log2(nTiles));
-    const dataZoom = Math.max(minzoom, Math.min(maxzoom, tileZoom));
+    const pixelRatio = this.map!.transform.worldSize / tileSize[1];
+    const tileZoom = Math.log2(pixelRatio / pixelToGridRatio);
+    const dataZoom = Math.max(minzoom, Math.min(maxzoom, Math.floor(tileZoom)));
     const tileCount = 2 ** dataZoom;
 
     const bounds = this.map!.getBounds();
@@ -292,7 +290,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   computeLoadableTiles() {
     return this.computeVisibleTiles(
       this.pixelToGridRatio,
-      Math.min(this.windData.width, this.windData.height),
+      [this.windData.width, this.windData.height],
       this.windData
     );
   }
@@ -306,7 +304,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
     if (this.windData) {
       this.computeVisibleTiles(
         this.pixelToGridRatio, // cannot find where this is defined
-        Math.min(this.windData.width, this.windData.height),
+        [this.windData.width, this.windData.height],
         this.windData
       ).forEach(tile => {
         const texture = this._tiles[tile.key];
