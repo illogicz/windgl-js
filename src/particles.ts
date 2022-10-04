@@ -17,6 +17,7 @@ type ParticleTile = {
 };
 
 type DataTile = {
+  particleTile: Tile,
   matrix: Float32Array;
   tileTopLeft: Tile;
   tileTopCenter: Tile;
@@ -76,7 +77,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
       options
     );
 
-    this.pixelToGridRatio = 2;
+    this.pixelToGridRatio = 1;
     this.tileSize = 1024;
 
     this.dropRate = 0.01; // how often the particles move to a random place
@@ -103,7 +104,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
   screenTexture?: WebGLTexture;
   particleStateResolution!: number;
 
-  private particleSpeed: number;
+  public particleSpeed: number;
   private tileSize: number;
   private dropRate: number;
   private dropRateBump: number
@@ -117,7 +118,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
   visibleParticleTiles() {
     return this.computeVisibleTiles(this.pixelToGridRatio, [this.tileSize, this.tileSize], {
       minzoom: 0, // 2
-      maxzoom: this.windData.maxzoom + 3 // 5
+      maxzoom: this.windData.maxzoom + 2  // 5
     });
   }
 
@@ -267,8 +268,8 @@ export class Particles extends WindGlLayer<ParticleProps> {
     return Object.values(result);
   }
 
-  findAssociatedDataTiles(tileID: Tile): DataTile | undefined {
-    let t = tileID;
+  findAssociatedDataTiles(tile: Tile): DataTile | undefined {
+    let t = tile;
     let found;
     let matrix = new window.DOMMatrix();
     while (true) { //!t.isRoot()) { // EDIT: skipped if first tile is root?
@@ -309,6 +310,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
     if (br.y > 1 && !tileBottomCenter) return;
 
     return {
+      particleTile: tile,
       matrix: matrix.toFloat32Array(),
       tileTopLeft: tileTopLeft || this.nullTile,
       tileTopCenter: tileTopCenter || this.nullTile,
@@ -350,6 +352,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
     gl.uniform1i(program.u_particles, 0);
 
     // speeds
+
     gl.uniform1i(program.u_wind_top_left, 1);
     gl.uniform1i(program.u_wind_top_center, 2);
     gl.uniform1i(program.u_wind_top_right, 3);
@@ -365,6 +368,15 @@ export class Particles extends WindGlLayer<ParticleProps> {
     gl.uniform1f(program.u_rand_seed, Math.random());
 
     const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;
+
+    const offset = data.particleTile.viewMatrix(2);
+    //console.log("update offset", offset);
+    gl.uniformMatrix4fv(program.u_offset, false, offset);
+    gl.uniformMatrix4fv(
+      program.u_offset_inverse,
+      false,
+      util.matrixInverseTyped(offset)
+    );
 
     gl.uniform2f(program.u_wind_res, width, height);
     gl.uniform2f(program.u_wind_min, uMin, vMin);
@@ -405,7 +417,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
   }
 
   //draw(gl, matrix, tile, offset, data) {
-  protected draw(gl: WebGLRenderingContext, matrix: Float32List, tile: ParticleTile, offset: Float32List, data: DataTile) {
+  protected draw(gl: WebGLRenderingContext, matrix: mat4, tile: ParticleTile, offset: Float32Array, data: DataTile) {
     const program = this.drawProgram;
     gl.useProgram(program.program);
 
@@ -437,16 +449,17 @@ export class Particles extends WindGlLayer<ParticleProps> {
 
     gl.uniform1f(program.u_particles_res, this.particleStateResolution);
 
+    //console.log("draw offset", offset);
     gl.uniformMatrix4fv(program.u_offset, false, offset);
     gl.uniformMatrix4fv(
       program.u_offset_inverse,
       false,
-      //@ts-ignore
-      util.matrixInverse(offset)
+      util.matrixInverseTyped(offset)
     );
 
     gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
     gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
+    gl.uniform1i(program.u_bli_enabled, +this.source.bliEnabled);
 
     gl.uniformMatrix4fv(program.u_matrix, false, matrix);
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);

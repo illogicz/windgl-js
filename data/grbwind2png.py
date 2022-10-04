@@ -114,8 +114,8 @@ if __name__ == "__main__":
     except ValueError as e:
         raise ValueError("Invalid timestamp entered.") from e
 
-    filename = f"data/NL_{args.timestamp}00.grb"
-    #filename = f"data/harmonie_xy_2022-09-28_06_nl.grb"
+    #filename = f"data/NL_{args.timestamp}00.grb"
+    filename = f"data/harmonie_xy_2022-09-28_06_nl.grb"
     imagename = "full.png"
     directory = os.path.join(args.output_dir, args.timestamp)
 
@@ -169,6 +169,16 @@ if __name__ == "__main__":
         for p in [(src.bounds.left, src.bounds.top), (src.bounds.right, src.bounds.bottom)]
     ]
 
+    max = 40
+    U = round(max(0, min(0, (src.u + max) / (max * 2))) * 0xFFF)
+    V = round(min(1, max(0, (src.v + max) / (max * 2))) * 0xFFF)
+    R = U & 0xFF
+    G = (U >> 8 & 0xF0) | (V & 0x0F)
+    B = V >> 4
+
+    # UUUUUUUU-UUUUVVVV-VVVVVVVV-11111111
+    # RRRRRRRR-GGGGGGGG-BBBBBBBB-AAAAAAAA
+
     for zoom in range(maxzoom + 1):
         scale = 2 ** zoom
 
@@ -184,7 +194,6 @@ if __name__ == "__main__":
                 (left, top, right, bottom) = map(round, np.array([
                     af.translation(-x * 360, -y * 180) * c for c in (lt, rb)
                 ]).flatten())
-
                 filename = os.path.join(dir, f"{y}.png")
                 if left <= tileWidth and right >= 0 and top <= tileHeight and bottom >= 0:
                     draw.rectangle((0, 0, tileWidth, tileHeight), fill=zero)

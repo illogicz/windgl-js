@@ -3,7 +3,7 @@ import pkg from "./package.json";
 import commonjs from "rollup-plugin-commonjs";
 import resolve from "rollup-plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
-import fg from 'fast-glob';
+//import fg from 'fast-glob';
 
 import { compile as glslify } from "glslify";
 import * as GLSLX from "glslx";
@@ -120,21 +120,23 @@ function makeGLSL(userOptions = {}) {
 }
 
 const plugins = [
-  {
-    name: 'watch-external',
-    async buildStart() {
-      const files = await fg('src/**/*');
-      for (let file of files) {
-        console.log(file);
-        this.addWatchFile(file);
-      }
-    }
-  },
+  // {
+  //   name: 'watch-external',
+  //   async buildStart() {
+  //     const files = await fg('src/**/*');
+  //     for (let file of files) {
+  //       console.log(file);
+  //       this.addWatchFile(file);
+  //     }
+  //   }
+  // },
   makeGLSL({ include: "./src/shaders/*.glsl" }),
   resolve(),
   commonjs(),
   typescript({
-    sourceMap: true
+    watch: true,
+    sourceMap: true,
+    noEmitOnError: false
   }),
 ];
 

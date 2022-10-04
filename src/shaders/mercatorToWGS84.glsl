@@ -1,4 +1,4 @@
-const float PI = 3.14159265359;
+const float PI = 3.1415926535897932384626433832795;
 
 /**
  * Converts mapbox style pseudo-mercator coordinates (this is just like mercator, but the unit isn't a meter, but 0..1
@@ -7,9 +7,8 @@ const float PI = 3.14159265359;
  * EDIT: Optimised 
  */
 vec2 mercatorToWGS84(vec2 xy) {
-    
-    float yy = (xy.y * 2.0 - 1.0) * PI;
-    return vec2(xy.x, atan(exp(yy)) * 2.0 / PI );
+    float y = (xy.y * 2.0 - 1.0) * PI;
+    return vec2(xy.x, atan(exp(y)) * 2.0 / PI );
 }
 
 #pragma glslify: export(mercatorToWGS84)

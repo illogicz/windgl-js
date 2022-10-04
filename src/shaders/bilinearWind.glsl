@@ -3,8 +3,7 @@
  * Uses manual bilinear filtering based on 4 adjacent pixels for smooth interpolation.
  */
 vec2 bilinearWind(const vec2 uv) {
-    vec2 res = windRes; // - vec2(1.0, 1.0);
-    vec2 px = 1.0 / res;
+    vec2 px = 1.0 / windRes;
     vec2 vp = uv * res + vec2(0.5, 0.5);
     vec2 vc = floor(vp) * px;
     vec2 f = fract(vp);

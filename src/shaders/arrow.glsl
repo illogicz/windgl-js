@@ -24,6 +24,8 @@ varying float v_speed;
 #pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
 #pragma glslify: transform = require(./transform)
 
+const float PI = 3.14159265359;
+const float TWO_PI = 6.28318530718;
 
 vec2 windSpeedRelative(const vec2 uv) {
     return texture2D(u_wind, uv).rg; // lower-res hardware filtering
@@ -34,8 +36,8 @@ vec2 windSpeed(const vec2 uv) {
 }
 
 mat2 rotation(float angle) {
-    return mat2(cos(angle), -sin(angle),
-                sin(angle), cos(angle));
+    return mat2(cos(angle), sin(angle),
+                -sin(angle), cos(angle));
 }
 
 
@@ -44,6 +46,10 @@ export void arrowVertex() {
     vec2 unit = 0.45 / u_dimensions;
     vec2 pos = mod(a_pos / u_dimensions, vec2(1,1));
 
+    if(texture2D(u_wind, pos).b > 0.0) {
+        gl_Position.y = 10000.0;
+        return;
+    }
 
     vec2 speed = windSpeed(pos);
     v_speed = length(speed) / u_speed_max;
@@ -51,9 +57,10 @@ export void arrowVertex() {
     v_center = a_corner;
     v_size = length(speed) / u_speed_max;
 
-    pos += rotation(angle) *  a_corner * unit;
+    pos += rotation(angle + PI) * a_corner * unit;
+
     // Fix proportions from rectangular projection to square
-    pos.x *= u_dimensions.x / u_dimensions.y;
+    //pos.x *= u_dimensions.x / u_dimensions.y;
 
     vec2 worldCoordsWGS84 = transform(pos, u_offset);
     vec2 worldCoordsMerc = wgs84ToMercator(worldCoordsWGS84);
@@ -65,8 +72,6 @@ export void arrowVertex() {
     // }
 }
 
-const float PI = 3.14159265359;
-const float TWO_PI = 6.28318530718;
 
 float polygon(vec3 st, int N) {
     float a = atan(st.x, st.y) + PI;
@@ -97,13 +102,12 @@ float arrow(vec3 st, float len) {
 
 export void arrowFragment() {
     vec3 st = vec3(v_center, 1);
-    float size = mix(0.25, 4.0, v_size);
+    float size = mix(0.0, 2.0, v_size);
     float d = arrow(st * translate(vec2(0, -size / 2.0)), size);
 
-    float inside = 1.0 - smoothstep(0.4, 0.405, d);
-    float halo = (1.0 - smoothstep(0.43, 0.435, d)) - inside;
+    float inside = 1.0 - smoothstep(0.3, 0.405, d);
+    float halo = (1.0 - smoothstep(0.405, 0.555, d)) - inside;
 
- 
     // EDIT: 256x1 instead, avoiding vertical interpolation issues
     vec2 ramp_pos = vec2(v_speed, 0.5);
     

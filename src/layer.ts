@@ -51,7 +51,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   }
 
   protected abstract initialize(map: mb.Map, gl: WebGLRenderingContext): void;
-  protected abstract draw(gl: WebGLRenderingContext, matrix: Float32List, tile: any, offset: Float32List, data?: any): void;
+  protected abstract draw(gl: WebGLRenderingContext, matrix: mat4, tile: any, offset: Float32List, data?: any): void;
 
   //@ts-ignore 
   gl: WebGLRenderingContext;
@@ -134,6 +134,21 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
     }
   }
 
+
+  protected createRamp(expr: mb.StylePropertyExpression, range: { min: number, max: number }, size = 256) {
+    const colors: mb.Color[] = Array(size);
+    for (let i = 0; i < size; i++) {
+      const color = expr.evaluate(
+        expr.kind === "constant" || expr.kind === "source"
+          ? {} as mb.GlobalProperties
+          : { zoom: this.map!.getZoom() },
+        { properties: { speed: fromFraction(i / (size - 1), range) } } as unknown as mb.Feature
+      );
+      colors[i] = color
+    }
+    return colors;
+  }
+
   // Properties that use data drive styling (i.e. ["get", "speed"]),
   // will want to use this method. Since all speed values are evalutated
   // on the GPU side, but expressions are evaluated on the CPU side,
@@ -175,17 +190,41 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
     );
   }
 
+  buildColorGrid(x: mb.StylePropertyExpression, y: mb.StylePropertyExpression, filter = this.gl.LINEAR) {
+    // Idealy always a 1 px texture width, unless interpolation is off.
+    const size = 256;
+    const colorData = new Uint8Array(size * size * 4);
+    let x_range = { min: 0, max: 1 };
+    let y_range = { min: 0, max: 1 };
+    if (x.kind === "source" || x.kind === "composite") {
+      x_range = { min: this.windData.uMin, max: this.windData.uMax }
+    }
+    if (y.kind === "source" || y.kind === "composite") {
+      y_range = { min: this.windData.vMin, max: this.windData.vMax }
+    }
+
+    const x_colors = this.createRamp(x, x_range, size);
+    const y_colors = this.createRamp(y, y_range, size);
+    let i = 0;
+    for (const x of x_colors) {
+      for (const y of y_colors) {
+        colorData[i++] = Math.min(255, (x.r + y.r) * 255);
+        colorData[i++] = Math.min(255, (x.g + y.g) * 255);
+        colorData[i++] = Math.min(255, (x.b + y.b) * 255);
+        colorData[i++] = Math.min(255, (x.a + y.a) * 255);
+      }
+    }
+
+    return util.createTexture(
+      this.gl,
+      filter,
+      colorData,
+      size,
+      size
+    );
+  }
 
   computeVisibleTiles(pixelToGridRatio: number, tileSize: [number, number], { maxzoom, minzoom }: { maxzoom: number, minzoom: number }) {
-
-    /* Orig
-    const pixels = this.gl!.canvas.height * this.map!.getZoom();
-    const actualZoom = pixels / (tileSize * pixelToGridRatio);
-    const practicalZoom = Math.max(
-      Math.min(maxzoom, Math.floor(actualZoom)),
-      minzoom
-    );
-    */
 
     const pixelRatio = this.map!.transform.worldSize / tileSize[1];
     const tileZoom = Math.log2(pixelRatio / pixelToGridRatio);
@@ -220,7 +259,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
 
   tileLoaded(tile: Tile) {
     this._tiles[tile.key] = tile;
-    this.map!.triggerRepaint();
+    this.map?.triggerRepaint();
   }
 
   // lifecycle
@@ -318,4 +357,9 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
 
   onRenderTiles?: (tiles: Set<Tile>) => void;
 
+}
+
+
+function fromFraction(fraction: number, interval: { min: number, max: number }) {
+  return fraction * (interval.max - interval.min) + interval.min;
 }

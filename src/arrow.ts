@@ -2,6 +2,8 @@ import * as util from "./util";
 import { WindGlLayer, LayerOptions } from "./layer";
 import { arrow } from "./shaders/arrow.glsl";
 import { Tile } from "./tileID";
+import type { mat4 } from "gl-matrix";
+
 //
 import type * as mb from "maplibre-gl";
 export type ArrowProps = "arrow-min-size" | "arrow-color" | "arrow-halo-color";
@@ -76,8 +78,8 @@ export class Arrows extends WindGlLayer<ArrowProps> {
   }
 
   initializeGrid() {
-    this.cols = this.windData.width;
-    this.rows = this.windData.height;
+    this.cols = this.windData.tileWidth;
+    this.rows = this.windData.tileHeight;
     const numTriangles = this.rows * this.cols * 2;
     const numVertices = numTriangles * 3;
     const positions = new Float32Array(2 * numVertices);
@@ -111,13 +113,17 @@ export class Arrows extends WindGlLayer<ArrowProps> {
 
     // Either we show the grid size of the data, or we show fewer such
     // that these should be about ~minSize.
+    // return [
+    //   Math.min(Math.floor((Math.floor(z + 1) * w) / minSize), cols) - 1,
+    //   Math.min(Math.floor((Math.floor(z + 1) * h) / minSize), rows) - 1
+    // ];
     return [
-      Math.min(Math.floor((Math.floor(z + 1) * w) / minSize), cols) - 1,
-      Math.min(Math.floor((Math.floor(z + 1) * h) / minSize), rows) - 1
+      Math.min(Math.floor(w / minSize), cols) - 1,
+      Math.min(Math.floor(h / minSize), rows) - 1
     ];
   }
 
-  draw(gl: WebGLRenderingContext, matrix: number[], tile: Tile, offset: number[]) {
+  draw(gl: WebGLRenderingContext, matrix: mat4, tile: Tile, offset: Float32List) {
     const program = this.arrowsProgram;
     gl.useProgram(program.program);
 
@@ -155,7 +161,6 @@ export class Arrows extends WindGlLayer<ArrowProps> {
     );
 
     gl.uniformMatrix4fv(program.u_matrix, false, matrix);
-
     // if these were put in a smarter order, we could optimize this call further
     gl.drawArrays(gl.TRIANGLES, 0, this.rows * Math.floor(cols) * 6);
   }

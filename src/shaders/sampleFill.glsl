@@ -1,4 +1,4 @@
-precision mediump float;
+precision highp float;
 
 #pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
 #pragma glslify: mercatorToWGS84 = require(./mercatorToWGS84)
@@ -17,18 +17,25 @@ uniform bool u_bli_enabled;
 uniform float u_opacity;
 uniform sampler2D u_color_ramp;
 uniform mat4 u_inverse_matrix;
-
+const vec4 c_empty = vec4(0.0 ,0.0 ,0.0 ,0.0);
 
 
 attribute vec2 a_pos;
 
 varying vec2 v_tex_pos; // the position in the texture to find
 
-vec2 windTexture(const vec2 uv) {
-    return texture2D(u_wind, uv).rg;
+vec4 windTexture(const vec2 uv) {
+    return texture2D(u_wind, uv);
 }
 
-#pragma glslify: windSpeedRelative = require(./bilinearWind, windTexture=windTexture, windRes=u_wind_res)
+// #pragma glslify: windSpeedRelative = require(./bilinearWind, windTexture=windTexture, windRes=u_wind_res)
+#pragma glslify: bicubicSample = require(./bicubic, windTexture=windTexture, windRes=u_wind_res)
+
+vec4 windTexture_i(const vec2 uv) {
+    return u_bli_enabled 
+        ? bicubicSample(uv)
+        : windTexture(uv);
+}
 
 export void sampleFillVertex() {
     vec2 worldCoordsWGS84 = transform(a_pos, u_offset);
@@ -37,30 +44,15 @@ export void sampleFillVertex() {
     gl_Position = u_matrix * vec4(worldCoordsMerc, 0, 1);
 }
 
-vec2 windSpeed(const vec2 uv) {
-    return mix(u_wind_min, u_wind_max, 
-        u_bli_enabled 
-        ? windSpeedRelative(uv)
-        : windTexture(uv)
-    );
-}
-
-/**
- * Returns the magnitude of the wind speed vector as a proportion of the maximum speed.
- */ 
-float windSpeedMagnitude(const vec2 uv) {
-    return length(windSpeed(uv)) / u_speed_max;
-}
-
 export void sampleFillFragment() {
     vec2 globalWGS84 = mercatorToWGS84(v_tex_pos);
     vec2 localWGS84 = transform(globalWGS84, u_offset_inverse);
-    float speed_t = windSpeedMagnitude(localWGS84);
 
-    // EDIT: 256x1 instead, avoiding vertical interpolation issues
+    vec4 tex = windTexture_i(localWGS84);
+    float speed_t = length(mix(u_wind_min, u_wind_max, tex.rg)) / u_speed_max;
+
     vec2 ramp_pos = vec2(speed_t, 0.5);
-
     vec4 color = texture2D(u_color_ramp, ramp_pos);
-
-    gl_FragColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
+    float mask = (1.0 - ceil(tex.b));
+    gl_FragColor = vec4(floor(255.0 * color * u_opacity) / 255.0) * mask;
 }

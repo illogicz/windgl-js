@@ -1,13 +1,14 @@
 import { WindGlLayer, LayerOptions } from "./layer";
 import * as util from "./util";
 
+import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
 import { sampleFill } from "./shaders/sampleFill.glsl";
 import { Tile } from "./tileID";
 
-
-export type SampleFillProps = "sample-fill-color" | "sample-opacity";
+export type SampleFillProps = "sample-opacity" | "sample-fill-color";
 export type SampleFillOptions = LayerOptions<SampleFillProps>
+//export type XYFillProps = "sample-opacity" | "x-fill-color" | "y-fill-color"
 
 export class SampleFill extends WindGlLayer<SampleFillProps> {
   constructor(options: SampleFillOptions) {
@@ -38,7 +39,6 @@ export class SampleFill extends WindGlLayer<SampleFillProps> {
           ] as any,
           overridable: true,
           transition: true,
-          //doc: "The color of each pixel of this layer",
           expression: {
             interpolated: true,
             parameters: ["zoom", "feature"]
@@ -108,7 +108,7 @@ export class SampleFill extends WindGlLayer<SampleFillProps> {
   //   }
   // }
 
-  draw(gl: WebGLRenderingContext, matrix: Float32Array, tile: Tile, offset: Float32Array) {
+  draw(gl: WebGLRenderingContext, matrix: mat4, tile: Tile, offset: Float32Array) {
     //console.log("draw", { matrix, tile, offset });
 
     const opacity = this.sampleOpacity

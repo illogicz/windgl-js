@@ -16,3 +16,7 @@ declare module "*/sampleFill.glsl" {
     export const sampleFill: MakeGlslProgram;
 }
 
+declare module "*/xyFill.glsl" {
+    export const xyFill: MakeGlslProgram;
+}
+

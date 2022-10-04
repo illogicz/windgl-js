@@ -43,6 +43,7 @@ export interface WindSourceSpec {
   minzoom: number;
   maxzoom: number;
   tiles: string[];
+  bounds: [number, number, number, number]
 }
 
 export type TextureFilter = "LINEAR" | "NEAREST";

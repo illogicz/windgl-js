@@ -1,6 +1,9 @@
 precision highp float;
+const float PI = 3.1415926535897932384626433832795;
+const float wmRange = 20037508.0;
 
 #pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
+#pragma glslify: mercatorToWGS84 = require(./mercatorToWGS84)
 #pragma glslify: transform = require(./transform)
 
 
@@ -34,6 +37,7 @@ uniform bool u_initialize;
 uniform float u_particles_res;
 uniform mat4 u_matrix;
 uniform mat4 u_offset;
+uniform mat4 u_offset_inverse;
 
 attribute vec2 a_pos;
 
@@ -53,56 +57,68 @@ float rand(const vec2 co) {
 
 // Fetches the proper wind speed from a 3x3 grid of textures
 // input should be in the range of -1..2
-vec2 windTexture(const vec2 uv) {
+vec4 windTexture(const vec2 uv) {
     if (uv.x > 1. && uv.y > 1.) {
-        return texture2D(u_wind_bottom_right, uv - vec2(1,1)).rg;
+        return texture2D(u_wind_bottom_right, uv - vec2(1,1));
     } else if (uv.x > 0. && uv.y > 1.) {
-        return texture2D(u_wind_bottom_center, uv - vec2(0,1)).rg;
+        return texture2D(u_wind_bottom_center, uv - vec2(0,1));
     } else if (uv.y > 1.) {
-        return texture2D(u_wind_bottom_left, uv - vec2(-1,1)).rg;
+        return texture2D(u_wind_bottom_left, uv - vec2(-1,1));
     } else if (uv.x > 1. && uv.y > 0.) {
-        return texture2D(u_wind_middle_right, uv - vec2(1,0)).rg;
+        return texture2D(u_wind_middle_right, uv - vec2(1,0));
     } else if (uv.x > 0. && uv.y > 0.) {
-        return texture2D(u_wind_middle_center, uv - vec2(0,0)).rg;
+        return texture2D(u_wind_middle_center, uv - vec2(0,0));
     } else if (uv.y > 0.) {
-        return texture2D(u_wind_middle_left, uv - vec2(-1,0)).rg;
+        return texture2D(u_wind_middle_left, uv - vec2(-1,0));
     } else if (uv.x > 1.) {
-        return texture2D(u_wind_top_right, uv - vec2(1,-1)).rg;
+        return texture2D(u_wind_top_right, uv - vec2(1,-1));
     } else if (uv.x > 0.) {
-        return texture2D(u_wind_top_center, uv - vec2(0,-1)).rg;
+        return texture2D(u_wind_top_center, uv - vec2(0,-1));
     } else {
-        return texture2D(u_wind_top_left, uv - vec2(-1,-1)).rg;
+        return texture2D(u_wind_top_left, uv - vec2(-1,-1));
     }
 }
 
-#pragma glslify: lookup_wind = require(./bilinearWind, windTexture=windTexture, windRes=u_wind_res)
+#pragma glslify: bicubicSample = require(./bicubic, windTexture=windTexture, windRes=u_wind_res)
 
-vec2 windSpeed(const vec2 uv) {
-    return mix(u_wind_min, u_wind_max, 
-        u_bli_enabled 
-        ? lookup_wind(uv)
-        : windTexture(uv)
-    );
+vec4 windTexture_i(const vec2 uv) {
+    return u_bli_enabled 
+        ? bicubicSample(uv)
+        : windTexture(uv);
 }
+
+vec2 windSpeed(const vec2 velocity) {
+    return mix(u_wind_min, u_wind_max, velocity);
+}
+
 
 // This actually updates the position of a particle
 vec2 update(vec2 pos) {
-    vec2 wind_tex_pos = transform(pos, u_data_matrix);
-    vec2 velocity = windSpeed(wind_tex_pos);
-    //vec2 velocity = mix(u_wind_min, u_wind_max, lookup_wind(wind_tex_pos));
-    float speed_t = length(velocity) / length(u_wind_max);
 
-    vec2 offset = vec2(velocity.x , -velocity.y) * 0.0001 * u_speed_factor;
+    vec2 pos_deg = transform(pos, u_offset);
+    vec2 pos_merc = wgs84ToMercator(pos_deg);
+    float res = cos(abs((pos_deg.y - 0.5) * PI));
+    
+
+    vec2 wind_tex_pos = transform(pos, u_data_matrix);
+    vec4 tex = windTexture_i(wind_tex_pos);
+    vec2 velocity = mix(u_wind_min, u_wind_max, tex.rg);
+    float speed_t = length(velocity) / u_speed_max;
+    vec2 offset = vec2(velocity.x , -velocity.y) * u_speed_factor / (wmRange * res) * 1000.0; //res;
 
     // update particle position
-    pos = fract(1.0 + pos + offset);
+    pos_merc = pos_merc + offset;
+    pos = transform(mercatorToWGS84(pos_merc), u_offset_inverse);
+
+    //pos = fract(1.0 + pos + offset);
 
     // a random seed to use for the particle drop
     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
 
     // drop rate is a chance a particle will restart at random position, to avoid degeneration
     float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump + smoothstep(0.24, 0.5, length(pos - vec2(0.5, 0.5)) * 0.7);
-    float drop = step(1.0 - drop_rate, rand(seed));
+    float drop = step(1.0 - drop_rate, rand(seed)) * ceil(abs(u_speed_factor));
+    //float drop = mix(step(1.0 - drop_rate, rand(seed)), 1.0, ceil(tex.b));
 
     vec2 random_pos = vec2(
         0.5 * rand(seed + 1.3) + 0.25,
@@ -158,7 +174,7 @@ export void particleDrawVertex() {
 }
 
 export void particleDrawFragment() {
-    vec2 velocity = mix(u_wind_min, u_wind_max, windTexture(transform(v_particle_pos, u_data_matrix)));
+    vec2 velocity = mix(u_wind_min, u_wind_max, windTexture_i(transform(v_particle_pos, u_data_matrix)).rg);
     float speed_t = length(velocity) / u_speed_max;
 
     vec2 ramp_pos = vec2(speed_t, 0.5);

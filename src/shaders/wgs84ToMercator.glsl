@@ -1,4 +1,4 @@
-const float PI = 3.14159265359;
+const float PI = 3.1415926535897932384626433832795;
 
 /**
  * Converts texture like WGS84 coordinates (this is just like WGS84, but instead of angles, it uses
