@@ -20,3 +20,7 @@ declare module "*/xyFill.glsl" {
     export const xyFill: MakeGlslProgram;
 }
 
+declare module "*/reproject.glsl" {
+    export const reproject: MakeGlslProgram;
+}
+

@@ -1,3 +1,8 @@
+import type { mat3, mat4 } from "gl-matrix";
+
+
+
+
 function createShader(gl: WebGLRenderingContext, type: number, source: string) {
 
   const shader = gl.createShader(type);
@@ -46,16 +51,16 @@ export function createProgram(gl: WebGLRenderingContext, vertexSource: string, f
   return wrapper;
 }
 
-export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array, width: number, height: number): WebGLTexture;
+export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array | Uint8ClampedArray, width: number, height: number): WebGLTexture;
 export function createTexture(gl: WebGLRenderingContext, filter: number, data: TexImageSource): WebGLTexture;
-export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array | TexImageSource, width?: number, height?: number) {
+export function createTexture(gl: WebGLRenderingContext, filter: number, data: Uint8Array | Uint8ClampedArray | TexImageSource, width?: number, height?: number) {
   const texture = gl.createTexture()
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
-  if (data instanceof Uint8Array) {
+  if (data instanceof Uint8Array || data instanceof Uint8ClampedArray) {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
@@ -106,9 +111,47 @@ export function bindFramebuffer(gl: WebGLRenderingContext, framebuffer: WebGLFra
 }
 
 
-export function matrixInverse(matrix: string | number[]) {
-  return new window.DOMMatrixReadOnly(matrix).inverse().toFloat32Array();
+export function matrixInverse(matrix: number[] | Float32Array) {
+  return (new window.DOMMatrixReadOnly(Array.from(matrix)).inverse()).toFloat32Array();
 }
-export function matrixInverseTyped(matrix: Float32Array) {
-  return window.DOMMatrixReadOnly.fromFloat32Array(matrix).inverse().toFloat32Array();
+
+
+export function mat3toMat4(m: mat3): mat4 {
+  return new DOMMatrixReadOnly([
+    m[0], m[3],
+    m[1], m[4],
+    m[2], m[5]
+  ]).toFloat32Array();
 }
+
+
+export function toMercator([lon, lat]: [number, number]): [number, number] {
+  return [
+    lon * EPSG3857_DEG,
+    Math.log(Math.tan(DEGtoTAU * (lat + 90))) * EPSG3857_R
+  ] as [number, number];
+}
+
+export function boundsToMerator(extent: Bounds): Bounds {
+  return [
+    extent[0] * EPSG3857_DEG, latToMerc(extent[1]),
+    extent[2] * EPSG3857_DEG, latToMerc(extent[3])
+  ];
+};
+
+const latToMerc = (lat: number) => Math.log(Math.tan(DEGtoTAU * (lat + 90))) * EPSG3857_R;
+export type Bounds = number[]; //[number, number, number, number];
+
+
+const DEGtoRAD = Math.PI / 180;
+const DEGtoTAU = Math.PI / 360;
+const RADtoDEG = 180 / Math.PI;
+const TAUtoDEG = 360 / Math.PI;
+
+const EPSG3857_R = 6378137;
+const EPSG3857_HS = EPSG3857_R * Math.PI;
+const EPSG3857_DEG = EPSG3857_HS / 180;
+const EPSG3857_DEG_inv = 180 / EPSG3857_HS;
+const earthRadius = 6371e3 / 1852;
+const wmRange = 20037508.342789244;
+const wmExtent = Object.freeze([-wmRange, -wmRange, wmRange, wmRange]);

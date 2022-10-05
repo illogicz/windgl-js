@@ -1,7 +1,7 @@
 import * as styleSpec from "@maplibre/maplibre-gl-style-spec";
 import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
-import type { TextureFilter, WindSource, WindSourceSpec } from "./source";
+import type { TextureFilter, WindSource, TileSourceSpec } from "./tileSource";
 import { tile, Tile } from "./tileID";
 import * as util from "./util";
 
@@ -66,7 +66,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   colorRampTexture?: WebGLTexture;
 
   //@ts-ignore
-  windData: WindSourceSpec;
+  windData: TileSourceSpec;
   tileZoomOffset: number;
   private _zoomUpdatable: Partial<Record<Props, mb.CameraExpression | mb.CompositeExpression>>;
   private _propsOnInit: Partial<Record<Props, mb.ConstantExpression | mb.SourceExpression>>;
@@ -284,7 +284,7 @@ export abstract class WindGlLayer<Props extends string> implements mb.CustomLaye
   }
 
   // data management
-  setWind(windData: WindSourceSpec) {
+  setWind(windData: TileSourceSpec) {
     this.windData = windData;
     if (this.map) {
       this._initialize(this.map);

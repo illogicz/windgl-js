@@ -375,7 +375,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
     gl.uniformMatrix4fv(
       program.u_offset_inverse,
       false,
-      util.matrixInverseTyped(offset)
+      util.matrixInverse(offset)
     );
 
     gl.uniform2f(program.u_wind_res, width, height);
@@ -451,11 +451,7 @@ export class Particles extends WindGlLayer<ParticleProps> {
 
     //console.log("draw offset", offset);
     gl.uniformMatrix4fv(program.u_offset, false, offset);
-    gl.uniformMatrix4fv(
-      program.u_offset_inverse,
-      false,
-      util.matrixInverseTyped(offset)
-    );
+    gl.uniformMatrix4fv(program.u_offset_inverse, false, util.matrixInverse(offset));
 
     gl.uniform2f(program.u_wind_min, this.windData.uMin, this.windData.vMin);
     gl.uniform2f(program.u_wind_max, this.windData.uMax, this.windData.vMax);
@@ -465,6 +461,5 @@ export class Particles extends WindGlLayer<ParticleProps> {
     gl.uniformMatrix4fv(program.u_data_matrix, false, data.matrix);
 
     gl.drawArrays(gl.POINTS, 0, this._numParticles);
-    //gl.flush();
   }
 }

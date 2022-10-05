@@ -158,7 +158,7 @@ export default [
         sourcemap: true
       }
     ],
-    external: ["@maplibre/maplibre-gl-style-spec"],
+    external: ["@maplibre/maplibre-gl-style-spec", "spectorjs"],
     plugins
   }
 ];

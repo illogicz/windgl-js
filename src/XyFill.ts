@@ -145,11 +145,7 @@ export class XyFill extends WindGlLayer<XYFillProps> {
 
         gl.uniform1f(program.u_opacity, opacity);
         gl.uniformMatrix4fv(program.u_offset, false, offset);
-        gl.uniformMatrix4fv(
-            program.u_offset_inverse,
-            false,
-            util.matrixInverseTyped(offset)
-        )
+        gl.uniformMatrix4fv(program.u_offset_inverse, false, util.matrixInverse(offset))
 
         const { uMin, vMin, uMax, vMax, width, height } = this.windData;
 

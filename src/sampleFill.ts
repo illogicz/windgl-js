@@ -128,7 +128,7 @@ export class SampleFill extends WindGlLayer<SampleFillProps> {
     gl.uniformMatrix4fv(
       program.u_offset_inverse,
       false,
-      util.matrixInverseTyped(offset)
+      util.matrixInverse(offset)
     )
 
     const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;
