@@ -1,7 +1,7 @@
-import * as util from "./util";
 import type { mat3, mat4 } from "gl-matrix";
+import { Interpolator } from "./interpolate";
 import { Reprojector } from "./reproject";
-import { TextureFilter } from "./tileSource";
+import * as util from "./util";
 
 
 export interface WindMetaData {
@@ -13,10 +13,18 @@ export interface WindMetaData {
   transform: mat3;
   image: string,
 }
+
+export interface WindTexturePair {
+  tex1: WindTexture;
+  tex2: WindTexture;
+  a: number;
+}
+
 export interface WindTexture {
   (gl: WebGLRenderingContext): WebGLTexture
 }
 
+// TODO: Make factory function that preloads metadata so we can initialize with it
 export class Source {
   constructor(
     public readonly host: string,
@@ -25,113 +33,118 @@ export class Source {
     private readonly dataEndpoint = "getWindPrediction"
   ) { }
 
-  public filter: TextureFilter = "LINEAR";
+  // make private/readonly some of this
+  public gl!: WebGLRenderingContext;
+  public canvas!: HTMLCanvasElement;
+  public reprojector!: Reprojector;
+  public interpolator!: Interpolator;
+  public images = new Map<number, HTMLImageElement>();
 
-  public textures = new Map<string, WindTexture>()
   public initialized = false;
-  public width!: number;
-  public height!: number;
+  public dataSize: [number, number] = [0, 0];
+  public get textureSize() { return this.reprojector.outputSize }
   public uvMax!: number;
   public speedMax!: number;
   public bounds!: [number, number, number, number];
   public transformLatLon!: mat4;
-
-  //public transformLatLonInv!: mat4;
-  //public transform!: mat4;
-  //public transformInv!: mat4;
-  private reprojector!: Reprojector;
-
+  public transformMerc!: mat4;
 
   public initialize() {
-    return this.load(new Date().valueOf(), false);
+    return this.loadMetaData((new Date().valueOf() / HOUR) - 6);
   }
 
-  private test(data: Uint8ClampedArray, orig: HTMLImageElement) {
-    const [w, h] = this.reprojector.outputSize;
-    const test = new ImageData(data, w, h, { colorSpace: "srgb" });
+  public async loadMetaData(key: number) {
+    const params = this.getParams(key);
 
-    const canvas = document.createElement("canvas");
+    const url = `${this.host}/${this.metaEndpoint}?${params}`;
+    const resp = await fetch(url);
+    if (resp.status !== 200) throw new Error(`Error loading wind meta data ${url}`);
+
+    const data: WindMetaData = await resp.json();
+    this._initialize(data);
+  }
+
+  public render(t0: number, t1: number, a: number) {
+    this.interpolator.setState(t0, t1, a);
+    this.interpolator.render();
+  }
+
+  public reproject(idx: number, key: number) {
+    const image = this.images.get(key);
+    if (!image) throw new Error("image not loaded, " + key);
+
+    const target = this.interpolator.getBuffer(idx);
+    this.reprojector.reproject(image, target);
+  }
+
+  private _initialize(data: WindMetaData) {
+    // maybe check if meta params match, in case
+    if (this.initialized) return;
+
+    const { date: _, image, width, height, ...rest } = data;
+    Object.assign(this, rest);
+
+    this.speedMax = Math.sqrt(2 * data.uvMax ** 2);
+    this.dataSize = [width, height];
+
+    this.transformLatLon = util.mat3toMat4(data.transform);
+    this.reprojector = new Reprojector(this);
+    this.interpolator = new Interpolator(this);
+
+    const [w, h] = this.reprojector.outputSize
+
+    // TODO: get canvas/context from somewhere else
+    const canvas = this.canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext('2d', { alpha: true, colorSpace: "srgb" });
+    const gl = this.gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
-    ctx?.putImageData(test, 0, 0);
-    console.log("2d", ctx?.getContextAttributes());
-    canvas.style.left = w + "px";
-    orig.style.left = w * 2 + "px";
+    this.reprojector.initialize(gl);
+    this.interpolator.initialize(gl);
 
-    Array.from(document.getElementsByClassName("test"))?.forEach(d => d.remove());
-
-    const container = document.createElement("div");
-    container.className = "test";
-    container.style.display = "flex";
-    container.style.flexDirection = "column";
-    container.style.position = "absolute";
-    container.style.zIndex = "99998";
-    container.style.transformOrigin = "top left"
-    container.style.transform = `scale(${window.innerHeight / (canvas.height * 2 + this.height)})`;
-    container.style.top = "0";
-    container.style.left = "0";
-
-    document.body.appendChild(container);
-
-    container.appendChild(orig);
-    container.appendChild(this.reprojector.canvas);
-    container.appendChild(canvas);
+    this.initialized = true;
   }
 
-  public async load(timestamp: number, loadImage = true) {
+  public async loadImage(key: number) {
 
-    const date = new Date(timestamp);
+    if (this.images.has(key)) return this.images.get(key);
+
+    const img = new Image();
+    const url = new URL(`${this.host}/${this.dataEndpoint}?${this.getParams(key)}`);
+    if (url.origin !== window.location.origin) img.crossOrigin = "anonymous";
+
+    img.src = url.toString();
+    await img.decode();
+    this.images.set(key, img);
+
+    return img;
+
+    // const imageDataMerc = this.reprojector.reproject(windImage);
+    // const size = this.reprojector.outputSize;
+    // this.test(imageDataMerc, windImage);
+
+    // const texture = (gl: WebGLRenderingContext) => {
+    //   return util.createTexture(gl, gl[this.filter], imageDataMerc, size[0], size[1]);
+    // }
+
+    // this.textures.set(key, texture);
+    // return texture;
+  }
+
+
+  private getParams(key: number) {
+    const date = new Date(key * HOUR);
     const year = date.getUTCFullYear().toString();
     const month = (date.getUTCMonth() + 1).toString();
     const day = date.getUTCDate().toString();
     const hour = date.getUTCHours().toString();
-    const key = `${year}/${month}/${day}-${hour.padStart(2, "0")}:00:00`;
-
-    if (this.textures.has(key)) return this.textures.get(key);
-
-    const params = new URLSearchParams({ scope: this.scope, year, month, day, hour }).toString();
-
-    //try {
-
-    // load meta data. (can probably skip/split, expecting params to be consistent)
-    const url = `${this.host}/${this.metaEndpoint}?${params}`;
-    const resp = await fetch(url);
-    if (resp.status !== 200) throw new Error(`Error loading wind meta data ${url}`);
-    const data: WindMetaData = await resp.json();
-
-    const { date: _, image, transform, ...rest } = data;
-
-    Object.assign(this, rest);
-
-    this.speedMax = Math.sqrt(2 * data.uvMax ** 2);
-    if (!this.initialized) {
-      this.transformLatLon = util.mat3toMat4(transform);
-      this.reprojector = new Reprojector(this);
-    }
-    this.initialized = true;
-    if (!loadImage) return;
-
-    // load image
-    const windImage = new Image();
-
-    const imageUrl = new URL(`${this.host}/${this.dataEndpoint}?${params}`);
-    if (imageUrl.origin !== window.location.origin) {
-      windImage.crossOrigin = "anonymous";
-    }
-    windImage.src = imageUrl.toString();
-    await windImage.decode();
-
-    const imageDataMerc = this.reprojector.reproject(windImage);
-    this.test(imageDataMerc, windImage);
-
-    const texture = (gl: WebGLRenderingContext) => {
-      return util.createTexture(gl, gl[this.filter], imageDataMerc, this.reprojector.outputSize[0], this.reprojector.outputSize[1]);
-    }
-
-    this.textures.set(key, texture);
-    return texture;
-
+    return new URLSearchParams({ scope: this.scope, year, month, day, hour }).toString();
   }
+
 }
+
+
+const HOUR = 1000 * 60 * 60;

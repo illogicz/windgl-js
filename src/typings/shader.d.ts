@@ -24,3 +24,6 @@ declare module "*/reproject.glsl" {
     export const reproject: MakeGlslProgram;
 }
 
+declare module "*/interpolate.glsl" {
+    export const interpolate: MakeGlslProgram;
+}
