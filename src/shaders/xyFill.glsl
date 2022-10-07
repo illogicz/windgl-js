@@ -1,8 +1,8 @@
 precision mediump float;
 
-#pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
-#pragma glslify: mercatorToWGS84 = require(./mercatorToWGS84)
-#pragma glslify: transform = require(./transform)
+#pragma glslify: wgs84ToMercator = require(./utils/wgs84ToMercator)
+#pragma glslify: mercatorToWGS84 = require(./utils/mercatorToWGS84)
+#pragma glslify: transform = require(./utils/transform)
 
 uniform mat4 u_matrix;
 uniform mat4 u_offset;
@@ -29,7 +29,7 @@ vec4 windTexture(const vec2 uv) {
     return texture2D(u_wind, uv);
 }
 
-#pragma glslify: bicubicSample = require(./bicubic, windTexture=windTexture, windRes=u_wind_res)
+#pragma glslify: bicubicSample = require(./utils/bicubic, windTexture=windTexture, windRes=u_wind_res)
 
 vec4 windTexture_i(const vec2 uv) {
     return u_bli_enabled 

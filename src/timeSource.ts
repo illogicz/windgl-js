@@ -38,7 +38,7 @@ export class Source {
   public canvas!: HTMLCanvasElement;
   public reprojector!: Reprojector;
   public interpolator!: Interpolator;
-  public images = new Map<number, HTMLImageElement>();
+  public images = new Map<number, Blob>();
 
   public initialized = false;
   public dataSize: [number, number] = [0, 0];
@@ -48,6 +48,7 @@ export class Source {
   public bounds!: [number, number, number, number];
   public transformLatLon!: mat4;
   public transformMerc!: mat4;
+
 
   public initialize() {
     return this.loadMetaData((new Date().valueOf() / HOUR) - 6);
@@ -64,24 +65,38 @@ export class Source {
     this._initialize(data);
   }
 
+  public async loadImage(key: number) {
+    let image = this.images.get(key);
+    if (image) return image;
+    const url = new URL(`${this.host}/${this.dataEndpoint}?${this.getParams(key)}`);
+    const res = await fetch(url);
+    image = await res.blob();
+    this.images.set(key, image);
+    return image;
+  }
+
   public render(t0: number, t1: number, a: number) {
     this.interpolator.setState(t0, t1, a);
     this.interpolator.render();
   }
 
-  public reproject(idx: number, key: number) {
-    const image = this.images.get(key);
-    if (!image) throw new Error("image not loaded, " + key);
-
+  public async reproject(idx: number, key: number) {
+    let blob = this.images.get(key);
+    if (!blob) blob = await this.loadImage(key);
+    const bitmap = await createImageBitmap(blob, {
+      premultiplyAlpha: 'none',
+      colorSpaceConversion: 'none',
+      imageOrientation: 'flipY'
+    });
     const target = this.interpolator.getBuffer(idx);
-    this.reprojector.reproject(image, target);
+    this.reprojector.reproject(bitmap, target);
   }
 
   private _initialize(data: WindMetaData) {
     // maybe check if meta params match, in case
     if (this.initialized) return;
 
-    const { date: _, image, width, height, ...rest } = data;
+    const { date, image, width, height, ...rest } = data;
     Object.assign(this, rest);
 
     this.speedMax = Math.sqrt(2 * data.uvMax ** 2);
@@ -89,16 +104,17 @@ export class Source {
 
     this.transformLatLon = util.mat3toMat4(data.transform);
     this.reprojector = new Reprojector(this);
-    this.interpolator = new Interpolator(this);
-
     const [w, h] = this.reprojector.outputSize
 
-    // TODO: get canvas/context from somewhere else
+    this.interpolator = new Interpolator([w, h]);
+
+    // TODO: get canvas/context from somewhere else?
     const canvas = this.canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
     const gl = this.gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
     gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+
     gl.viewport(0, 0, w, h);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
@@ -108,31 +124,7 @@ export class Source {
     this.initialized = true;
   }
 
-  public async loadImage(key: number) {
 
-    if (this.images.has(key)) return this.images.get(key);
-
-    const img = new Image();
-    const url = new URL(`${this.host}/${this.dataEndpoint}?${this.getParams(key)}`);
-    if (url.origin !== window.location.origin) img.crossOrigin = "anonymous";
-
-    img.src = url.toString();
-    await img.decode();
-    this.images.set(key, img);
-
-    return img;
-
-    // const imageDataMerc = this.reprojector.reproject(windImage);
-    // const size = this.reprojector.outputSize;
-    // this.test(imageDataMerc, windImage);
-
-    // const texture = (gl: WebGLRenderingContext) => {
-    //   return util.createTexture(gl, gl[this.filter], imageDataMerc, size[0], size[1]);
-    // }
-
-    // this.textures.set(key, texture);
-    // return texture;
-  }
 
 
   private getParams(key: number) {

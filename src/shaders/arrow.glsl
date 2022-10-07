@@ -20,9 +20,9 @@ varying float v_speed;
 
 
 
-#pragma glslify: mercatorToWGS84 = require(./mercatorToWGS84)
-#pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
-#pragma glslify: transform = require(./transform)
+#pragma glslify: mercatorToWGS84 = require(./utils/mercatorToWGS84)
+#pragma glslify: wgs84ToMercator = require(./utils/wgs84ToMercator)
+#pragma glslify: transform = require(./utils/transform)
 
 const float PI = 3.14159265359;
 const float TWO_PI = 6.28318530718;

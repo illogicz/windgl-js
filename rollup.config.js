@@ -148,10 +148,6 @@ export default [
       include: 'src/**/*',
     },
     output: [
-      // {
-      //   file: pkg.main,
-      //   format: "cjs"
-      // },
       {
         file: pkg.main,
         format: "es",

@@ -1,5 +1,5 @@
 import type { Tile } from "./tileID";
-import * as util from "./util";
+import * as util from "../util";
 
 function getJSON(url: URL, callback: any) {
   const xhr = new XMLHttpRequest();

@@ -2,9 +2,9 @@ precision highp float;
 const float PI = 3.1415926535897932384626433832795;
 const float wmRange = 20037508.0;
 
-#pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
-#pragma glslify: mercatorToWGS84 = require(./mercatorToWGS84)
-#pragma glslify: transform = require(./transform)
+#pragma glslify: wgs84ToMercator = require(./utils/wgs84ToMercator)
+#pragma glslify: mercatorToWGS84 = require(./utils/mercatorToWGS84)
+#pragma glslify: transform = require(./utils/transform)
 
 
 uniform sampler2D u_particles;
@@ -79,7 +79,7 @@ vec4 windTexture(const vec2 uv) {
     }
 }
 
-#pragma glslify: bicubicSample = require(./bicubic, windTexture=windTexture, windRes=u_wind_res)
+#pragma glslify: bicubicSample = require(./utils/bicubic, windTexture=windTexture, windRes=u_wind_res)
 
 vec4 windTexture_i(const vec2 uv) {
     return u_bli_enabled 

@@ -4,3 +4,4 @@ node_modules/
 dist/
 *.grb
 docs/wind/2022*/**
+.vscode/settings.json

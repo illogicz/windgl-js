@@ -1,8 +1,8 @@
 precision highp float;
 
-#pragma glslify: wgs84ToMercator = require(./wgs84ToMercator)
-#pragma glslify: mercatorToWGS84 = require(./mercatorToWGS84)
-#pragma glslify: transform = require(./transform)
+#pragma glslify: wgs84ToMercator = require(./utils/wgs84ToMercator)
+#pragma glslify: mercatorToWGS84 = require(./utils/mercatorToWGS84)
+#pragma glslify: transform = require(./utils/transform)
 
 // UUUUUUUU-UUUUVVVV-VVVVVVVV-11111111 - input
 // UUUUUUUU-VVVVVVVV-UUUUUUUU-VVVVVVVV - output
@@ -18,6 +18,7 @@ uniform sampler2D u_input;
 
 attribute vec2 a_pos;
 varying vec2 v_tex_pos;
+const float uvScale = 4096.0;
 
 
 // Convert RGB to uint UV
@@ -55,8 +56,11 @@ export void reprojectFragment() {
     vec2 uv = mix(RGBtoUV(t1), RGBtoUV(t2), fract(tex_y));
 
     // output to all 4 channels.
-    vec2 uv8 = uv / 16.0;
-    gl_FragColor = vec4(floor(uv8) / 255.0, fract(uv8));
+    //vec2 uv8 = uv / 16.0;
+    //gl_FragColor = vec4(floor(uv8) / 255.0, fract(uv8));
+
+    // Output to 16 bit float, actual values?
+    gl_FragColor = vec4(uv / (16.0 * 256.0) * 80.0 - 40.0, 0.0, 0.0); 
 }
 
 
