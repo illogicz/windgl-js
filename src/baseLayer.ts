@@ -25,8 +25,8 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
   protected gl?: WebGLRenderingContext | undefined;
   protected map?: mb.Map;
   protected propertySpec: PropertySpecs<Props>;
+  protected _propsOnInit: Partial<Record<Props, mb.StylePropertyExpression>> = {};
   private _zoomUpdatable: Partial<Record<Props, mb.CameraExpression | mb.CompositeExpression>> = {};
-  private _propsOnInit: Partial<Record<Props, mb.ConstantExpression | mb.SourceExpression>> = {};
 
   // ------------------------------------------------------------------------------------------
   // CustomLayerInterface impl
@@ -36,8 +36,8 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
   public readonly renderingMode: "2d" | "3d" = "2d";
 
   public abstract render(gl: WebGLRenderingContext, matrix: mat4): void;
-  public abstract onContextLost(evt: mb.MapContextEvent): void;
-  public abstract onContextRestored(evt: mb.MapContextEvent): void;
+  protected abstract onContextLost(evt: mb.MapContextEvent): void;
+  protected abstract onContextRestored(evt: mb.MapContextEvent): void;
 
   public prerender(gl: WebGLRenderingContext, matrix: mat4): void { };
 
@@ -58,6 +58,7 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
   }
 
   // ------------------------------------------------------------------------------------------
+  readonly triggerRepaint = () => this.map?.triggerRepaint();
 
 
   protected onMove(e?: MbEvent) { }

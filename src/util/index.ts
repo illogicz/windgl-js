@@ -1,4 +1,5 @@
-import type { mat3, mat4 } from "gl-matrix";
+import { mat3, mat4 } from "gl-matrix";
+import { MercatorCoordinate } from "maplibre-gl";
 
 
 function createShader(gl: WebGLRenderingContext, type: number, source: string) {
@@ -143,9 +144,20 @@ export function boundsToMerator(extent: Bounds): Bounds {
   ];
 };
 
+export function normMerc(extent: Bounds): Bounds {
+  return extent.map((c, i) => c / (wmRange * 2 * (1 - (i % 2) * 2)) + 0.5);
+};
+
+export function freezeVec<T extends Float32Array | number[]>(o: T): T;
+export function freezeVec<T extends number[]>(o: T): Float32Array;
+export function freezeVec(o: any[]) {
+  return Object.freeze(new Float32Array(o));
+}
+
+
 const latToMerc = (lat: number) => Math.log(Math.tan(DEGtoTAU * (lat + 90))) * EPSG3857_R;
 export type Bounds = number[]; //[number, number, number, number];
-
+//export type Coordinate = number[]; //[number, number, number, number];
 
 const DEGtoRAD = Math.PI / 180;
 const DEGtoTAU = Math.PI / 360;

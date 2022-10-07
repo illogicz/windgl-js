@@ -30,7 +30,7 @@ export function buildColorRamp(
   filter = WebGLRenderingContext.LINEAR
 ) {
 
-  const colorData = new Uint8Array(256 * 4);
+  const colorData = new Uint8Array(size * 4);
   let _range = [0, 1];
   if (expr.kind === "source" || expr.kind === "composite") {
     _range = range;

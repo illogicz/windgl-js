@@ -3,27 +3,31 @@ declare type GlslProgram = { program: WebGLProgram } & Record<string, any>
 type MakeGlslProgram = (gl: WebGLRenderingContext) => GlslProgram;
 
 declare module "*/particles.glsl" {
-    export const particleUpdate: MakeGlslProgram;
-    export const particleDraw: MakeGlslProgram;
-    export const screenDraw: MakeGlslProgram;
+  export const particleUpdate: MakeGlslProgram;
+  export const particleDraw: MakeGlslProgram;
+  export const screenDraw: MakeGlslProgram;
 }
 
 declare module "*/arrow.glsl" {
-    export const arrow: MakeGlslProgram;
+  export const arrow: MakeGlslProgram;
 }
 
 declare module "*/sampleFill.glsl" {
-    export const sampleFill: MakeGlslProgram;
+  export const sampleFill: MakeGlslProgram;
 }
 
 declare module "*/xyFill.glsl" {
-    export const xyFill: MakeGlslProgram;
+  export const xyFill: MakeGlslProgram;
+}
+
+declare module "*/fillLayer.glsl" {
+  export const fillLayer: MakeGlslProgram;
 }
 
 declare module "*/reproject.glsl" {
-    export const reproject: MakeGlslProgram;
+  export const reproject: MakeGlslProgram;
 }
 
 declare module "*/interpolate.glsl" {
-    export const interpolate: MakeGlslProgram;
+  export const interpolate: MakeGlslProgram;
 }
