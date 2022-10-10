@@ -20,9 +20,7 @@ declare module "*/xyFill.glsl" {
   export const xyFill: MakeGlslProgram;
 }
 
-declare module "*/fillLayer.glsl" {
-  export const fillLayer: MakeGlslProgram;
-}
+
 
 declare module "*/reproject.glsl" {
   export const reproject: MakeGlslProgram;
@@ -30,4 +28,16 @@ declare module "*/reproject.glsl" {
 
 declare module "*/interpolate.glsl" {
   export const interpolate: MakeGlslProgram;
+}
+
+declare module "*/fillLayer.glsl" {
+  export const fillLayer: MakeGlslProgram;
+}
+
+declare module "*/drawParticles.glsl" {
+  export const draw: MakeGlslProgram;
+}
+
+declare module "*/updateParticles.glsl" {
+  export const update: MakeGlslProgram;
 }

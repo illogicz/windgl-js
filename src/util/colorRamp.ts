@@ -2,55 +2,62 @@ import type * as mb from "maplibre-gl";
 import { createTexture } from ".";
 
 
-export function createRamp(
+export function buildColorRamp(
   map: mb.Map,
   expr: mb.StylePropertyExpression,
   range: number[],
   size = 256
 ) {
   const colors: mb.Color[] = Array(size);
+  const globals = expr.kind === "constant" || expr.kind === "source"
+    ? {} as mb.GlobalProperties
+    : { zoom: map.getZoom() };
+
   for (let i = 0; i < size; i++) {
-    const color = expr.evaluate(
-      expr.kind === "constant" || expr.kind === "source"
-        ? {} as mb.GlobalProperties
-        : { zoom: map.getZoom() },
-      { properties: { speed: fromFraction(i / (size - 1), range) } } as unknown as mb.Feature
-    );
+    const color = expr.evaluate(globals, {
+      properties: { speed: fromFraction(i / (size - 1), range) }
+    } as unknown as mb.Feature);
     colors[i] = color
   }
   return colors;
 }
 
-export function buildColorRamp(
+
+export function buildColorRampData(
+  map: mb.Map,
+  expr: mb.StylePropertyExpression,
+  range: [number, number] = [0, 1],
+  sizeOrData: number | Uint8Array = 256,
+): Uint8Array {
+  const isSize = typeof sizeOrData === "number";
+  const size = isSize ? sizeOrData : sizeOrData.length / 4;
+  const data = isSize ? new Uint8Array(sizeOrData * 4) : sizeOrData;
+
+  // let _range = [0, 1];
+  // if (expr.kind === "source" || expr.kind === "composite") {
+  //   _range = range;
+  // }
+  const colors = buildColorRamp(map, expr, range, size);
+  let i = 0;
+  for (const color of colors) {
+    data[i++] = color.r * 255;
+    data[i++] = color.g * 255;
+    data[i++] = color.b * 255;
+    data[i++] = color.a * 255;
+  }
+  return data
+}
+
+export function createColorRampTexture(
   gl: WebGLRenderingContext,
   map: mb.Map,
   expr: mb.StylePropertyExpression,
-  range: [number, number] = [0, 56.568],
+  range: [number, number] = [0, 1],
   size = 256,
   filter = WebGLRenderingContext.LINEAR
 ) {
-
-  const colorData = new Uint8Array(size * 4);
-  let _range = [0, 1];
-  if (expr.kind === "source" || expr.kind === "composite") {
-    _range = range;
-  }
-
-  const colors = createRamp(map, expr, _range, size);
-  let i = 0;
-  for (const color of colors) {
-    colorData[i++] = color.r * 255;
-    colorData[i++] = color.g * 255;
-    colorData[i++] = color.b * 255;
-    colorData[i++] = color.a * 255;
-  }
-  return createTexture(
-    gl,
-    filter,
-    colorData,
-    size,
-    1
-  );
+  const data = buildColorRampData(map, expr, range, size);
+  return createTexture(gl, filter, data, size, 1);
 }
 
 export function buildColorGrid(
@@ -59,10 +66,10 @@ export function buildColorGrid(
   x: mb.StylePropertyExpression,
   y: mb.StylePropertyExpression,
   range: [number, number, number, number] = [-40, -40, 40, 40],
+  size = 256,
   filter = WebGLRenderingContext.LINEAR
 ) {
-  // Idealy always a 1 px texture width, unless interpolation is off.
-  const size = 256;
+
   const colorData = new Uint8Array(size * size * 4);
   let x_range = [0, 1];
   let y_range = [0, 1];
@@ -73,8 +80,8 @@ export function buildColorGrid(
     y_range = [range[1], range[3]];
   }
 
-  const x_colors = createRamp(map, x, x_range, size);
-  const y_colors = createRamp(map, y, y_range, size);
+  const x_colors = buildColorRamp(map, x, x_range, size);
+  const y_colors = buildColorRamp(map, y, y_range, size);
   let i = 0;
   for (const x of x_colors) {
     for (const y of y_colors) {
@@ -84,7 +91,7 @@ export function buildColorGrid(
       colorData[i++] = Math.min(255, (x.a + y.a) * 255);
     }
   }
-
+  // TODO: see @buildColorRamp
   return createTexture(
     gl,
     filter,

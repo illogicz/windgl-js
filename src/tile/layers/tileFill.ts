@@ -75,14 +75,12 @@ export class SampleFill extends TileLayer<SampleFillProps> {
     throw new Error("Method not implemented.");
   }
 
-  protected override initialize(map: mb.Map, gl: WebGLRenderingContext) {
+  protected override initialize() {
+    if (!super.initialize()) return false;
+    const gl = this.gl!;
     this.backgroundProgram = sampleFill(gl);
-
-    const n = 1;
-    this.quadBuffer = util.createBuffer(
-      gl,
-      new Float32Array([0, 0, n, 0, 0, n, 0, n, n, 0, n, n])
-    );
+    this.quadBuffer = util.createBuffer(gl);
+    return true;
   }
 
   private setSampleFillColor(expr: mb.StylePropertyExpression) {

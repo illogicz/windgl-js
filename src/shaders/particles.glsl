@@ -43,10 +43,7 @@ attribute vec2 a_pos;
 
 varying vec2 v_tex_pos;
 
-export void particleUpdateVertex() {
-    v_tex_pos = a_pos;
-    gl_Position = vec4(1.0 - 2.0 * a_pos, 0, 1);
-}
+
 
 // pseudo-random generator
 const vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);
@@ -124,6 +121,11 @@ vec2 update(vec2 pos) {
         0.5 * rand(seed + 1.3) + 0.25,
         0.5 * rand(seed + 2.1) + 0.25);
     return mix(pos, random_pos, drop);
+}
+
+export void particleUpdateVertex() {
+    v_tex_pos = a_pos;
+    gl_Position = vec4(1.0 - 2.0 * a_pos, 0, 1);
 }
 
 export void particleUpdateFragment() {

@@ -8,8 +8,8 @@ import { particleDraw, particleUpdate } from "../../shaders/particles.glsl";
 import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
 
-export type ParticleProps = "particle-color" | "particle-speed";
-export type ParticleOptions = LayerOptions<ParticleProps>
+export type ParticleProps_ = "particle-color" | "particle-speed";
+export type ParticleOptions_ = LayerOptions<ParticleProps_>
 
 
 /**
@@ -25,14 +25,14 @@ export type ParticleOptions = LayerOptions<ParticleProps>
  *    are read from the texture and are projected into pseudo-mercator coordinates
  *    and their final position is computed based on the map viewport.
  */
-export class Particles extends TileLayer<ParticleProps> {
+export class Particles extends TileLayer<ParticleProps_> {
   public onContextLost(evt: mb.MapContextEvent): void {
     throw new Error("Method not implemented.");
   }
   public onContextRestored(evt: mb.MapContextEvent): void {
     throw new Error("Method not implemented.");
   }
-  constructor(options: ParticleOptions, source: WindSource) {
+  constructor(options: ParticleOptions_, source: WindSource) {
     super(
       {
         "particle-color": {
@@ -163,16 +163,14 @@ export class Particles extends TileLayer<ParticleProps> {
     this.particleIndexBuffer = util.createBuffer(gl, particleIndices);
   }
 
-  protected override initialize(map: mb.Map, gl: WebGLRenderingContext) {
+  protected override initialize() {
+    if (!super.initialize()) return false;
+
+    const gl = this.gl!;
     this.updateProgram = particleUpdate(gl);
     this.drawProgram = particleDraw(gl);
-
     this.framebuffer = gl.createFramebuffer();
-
-    this.quadBuffer = util.createBuffer(
-      gl,
-      new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
-    );
+    this.quadBuffer = util.createBuffer(gl);
 
     this.initializeParticles(gl, this._numParticles);
 
@@ -187,6 +185,8 @@ export class Particles extends TileLayer<ParticleProps> {
     this.nullTile = {
       getTexture: () => this.nullTexture,
     };
+
+    return true;
   }
 
   // This is a callback from mapbox for rendering into a texture

@@ -21,7 +21,6 @@ export void interpolateVertex() {
 export void interpolateFragment() {
     vec4 c1 = texture2D(u_tex_0, v_tex_pos);
     vec4 c2 = texture2D(u_tex_1, v_tex_pos);
-
     // half_float to rg;
     vec2 uv = mix(c1.xy, c2.xy, u_tex_a);
     gl_FragColor = vec4((uv + 40.0) / 80.0, 0.0, 1.0);

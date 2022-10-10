@@ -7,6 +7,7 @@ import { LayerOptions } from "../../baseLayer";
 import { WindSource } from "../tileSource";
 //
 import type * as mb from "maplibre-gl";
+//
 export type ArrowProps = "arrow-min-size" | "arrow-color" | "arrow-halo-color";
 export type ArrowOptions = LayerOptions<ArrowProps>
 
@@ -73,10 +74,11 @@ export class Arrows extends TileLayer<ArrowProps> {
   public onContextLost(evt: mb.MapContextEvent): void { }
   public onContextRestored(evt: mb.MapContextEvent): void { }
 
-  protected override initialize(map: mb.Map, gl: WebGLRenderingContext) {
-    super.initialize(map, gl);
-    this.arrowsProgram = arrow(gl);
+  protected override initialize() {
+    if (!super.initialize()) return false;
+    this.arrowsProgram = arrow(this.gl!);
     this.initializeGrid();
+    return true;
   }
 
   protected setArrowColor(expr: mb.StylePropertyExpression) {

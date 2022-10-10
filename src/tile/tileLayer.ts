@@ -4,7 +4,7 @@ import { tile, Tile } from "./tileID";
 import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
 import type { TextureFilter, TileSourceSpec, WindSource } from "./tileSource";
-import { buildColorGrid, buildColorRamp } from "../util/colorRamp";
+import { buildColorGrid, createColorRampTexture } from "../util/colorRamp";
 
 /**
  * Tile specfic base layer
@@ -46,11 +46,9 @@ export abstract class TileLayer<Props extends string> extends BaseLayer<Props> {
     }
   }
 
-  public override onAdd(map: mb.Map, gl: WebGLRenderingContext) {
-    super.onAdd(map, gl);
-    if (this.windData) {
-      this.initialize(map, gl);
-    }
+  protected override initialize() {
+    if (!this.windData) return false;
+    return super.initialize();
   }
 
   public override onRemove(map: mb.Map) {
@@ -77,9 +75,8 @@ export abstract class TileLayer<Props extends string> extends BaseLayer<Props> {
   // data management
   protected sourceLoaded(windData: TileSourceSpec) {
     this.windData = windData;
-    if (this.map && this.gl) {
-      this.initialize(this.map, this.gl);
-      this.map.triggerRepaint();
+    if (this.initialize()) {
+      this.map!.triggerRepaint()
     }
   }
 
@@ -130,7 +127,7 @@ export abstract class TileLayer<Props extends string> extends BaseLayer<Props> {
   onRenderTiles?: (tiles: Set<Tile>) => void;
 
   protected buildColorRamp(expr: mb.StylePropertyExpression) {
-    return this.colorRampTexture = buildColorRamp(this.gl!, this.map!, expr, [0, this.windData.speedMax]);
+    return this.colorRampTexture = createColorRampTexture(this.gl!, this.map!, expr, [0, this.windData.speedMax]);
   }
   protected buildColorGrid(
     x: mb.StylePropertyExpression,

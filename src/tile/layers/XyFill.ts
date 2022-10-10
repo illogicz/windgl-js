@@ -89,14 +89,12 @@ export class XyFill extends TileLayer<XYFillProps> {
   private xExpr?: mb.StylePropertyExpression;
   private yExpr?: mb.StylePropertyExpression;
 
-  protected override initialize(map: mb.Map, gl: WebGLRenderingContext) {
+  protected override initialize() {
+    if (!super.initialize()) return false;
+    const gl = this.gl!;
     this.backgroundProgram = xyFill(gl);
-
-    const n = 1;
-    this.quadBuffer = util.createBuffer(
-      gl,
-      new Float32Array([0, 0, n, 0, 0, n, 0, n, n, 0, n, n])
-    );
+    this.quadBuffer = util.createBuffer(gl);
+    return true;
   }
 
   private setXFillColor(expr: mb.StylePropertyExpression) {

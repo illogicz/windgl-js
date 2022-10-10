@@ -1,7 +1,6 @@
 import * as styleSpec from "@maplibre/maplibre-gl-style-spec";
 import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
-import { buildColorGrid, buildColorRamp } from "./util/colorRamp";
 
 /**q
  * This is an abstract base class that handles most of the mapbox specific
@@ -9,23 +8,24 @@ import { buildColorGrid, buildColorRamp } from "./util/colorRamp";
  */
 export abstract class BaseLayer<Props extends string> implements mb.CustomLayerInterface {
 
-  constructor(propertySpec: PropertySpecs<Props>, { id, ...options }: LayerOptions<Props>) {
-    this.id = id;
+  constructor(propertySpec: PropertySpecs<Props>, options: LayerOptions<Props>) {
+    this.id = options.id;
     this.propertySpec = propertySpec;
+    this.options = options;
 
     this.onZoom = this.onZoom.bind(this);
     this.onMove = this.onMove.bind(this);
 
     // This will initialize the default values
-    Object.keys(this.propertySpec).forEach(spec => {
-      this.setProperty(spec, options[spec] || this.propertySpec[spec].default);
-    });
+
   }
 
   protected gl?: WebGLRenderingContext | undefined;
   protected map?: mb.Map;
   protected propertySpec: PropertySpecs<Props>;
   protected _propsOnInit: Partial<Record<Props, mb.StylePropertyExpression>> = {};
+  protected initialized = false;
+  private options: LayerOptions<Props>;
   private _zoomUpdatable: Partial<Record<Props, mb.CameraExpression | mb.CompositeExpression>> = {};
 
   // ------------------------------------------------------------------------------------------
@@ -44,17 +44,11 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
   public onAdd(map: mb.Map, gl: WebGLRenderingContext) {
     this.gl = gl;
     this.map = map;
-    map.on("webglcontextlost", this._contextLost);
-    map.on("webglcontextrestored", this._contextRestored);
+    this.initialize();
   }
 
   public onRemove(map: mb.Map) {
-    delete this.gl;
-    delete this.map;
-    map.off("zoom", this.onZoom);
-    map.off("move", this.onMove);
-    map.off("webglcontextlost", this._contextLost);
-    map.off("webglcontextrestored", this._contextRestored);
+    this.uninitialize();
   }
 
   // ------------------------------------------------------------------------------------------
@@ -70,8 +64,10 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
 
   private _contextLost = (evt: mb.MapContextEvent) => {
     this.onContextLost(evt);
+    this.uninitialize();
     delete this.gl;
   }
+
   private _contextRestored = (evt: mb.MapContextEvent) => {
     // not sure we should get from here, wait until a render call, I guess?
     // Would have expected the event to provide the context..
@@ -80,38 +76,65 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
   }
 
   // responsibility of the implementer to call when ready
-  protected initialize(map: mb.Map, gl: WebGLRenderingContext) {
+  protected initialize() {
+    if (this.initialized) return false;
+    if (!this.map || !this.gl) return false;
+
+    Object.keys(this.propertySpec).forEach(spec => {
+      this.setProperty(spec, this.options[spec] || this.propertySpec[spec].default);
+    });
+
     Object.entries(this._propsOnInit).forEach(([k, v]) => {
       this._setPropertyValue(k, v);
     });
+
     this._propsOnInit = {};
+    this.map.on("zoom", this.onZoom);
+    this.map.on("move", this.onMove);
+    this.map.on("webglcontextlost", this._contextLost);
+    this.map.on("webglcontextrestored", this._contextRestored);
     this.onZoom();
     this.onMove();
-    map.on("zoom", this.onZoom);
-    map.on("move", this.onMove);
+
+    return this.initialized = true;
+  }
+
+  protected uninitialize() {
+    this.map?.off("zoom", this.onZoom);
+    this.map?.off("move", this.onMove);
+    this.map?.on("webglcontextlost", this._contextLost);
+    this.map?.on("webglcontextrestored", this._contextRestored);
+    delete this.gl;
+    delete this.map;
+    this.initialized = false;
   }
 
 
   /**
    * Update a property using a mapbox style epxression.
    */
-  setProperty(prop: Props, value: unknown) {
+  setProperty(prop: Props, expression: unknown) {
     const spec = this.propertySpec[prop];
     if (!spec) return;
-    const expr = styleSpec.expression.createPropertyExpression(value, spec);
+    const expr = styleSpec.expression.createPropertyExpression(expression, spec);
     //console.log(prop, expr)
     if (expr.result === "success") {
+      //@ts-ignore
+      this.options[prop] = expression as any;
+      let value = undefined;
       switch (expr.value.kind) {
         case "camera":
         case "composite":
-          return (this._zoomUpdatable[prop] = expr.value);
+          value = (this._zoomUpdatable[prop] = expr.value);
         default:
           if (this.map) {
-            return this._setPropertyValue(prop, expr.value);
+            value = this._setPropertyValue(prop, expr.value);
           } else {
             return (this._propsOnInit[prop] = expr.value);
           }
       }
+      this.map?.triggerRepaint();
+      return value;
     } else {
       throw new Error(expr.value.join(","));
     }

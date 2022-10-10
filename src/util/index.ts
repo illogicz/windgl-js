@@ -83,7 +83,11 @@ export function bindTexture(gl: WebGLRenderingContext, texture: WebGLTexture, un
   gl.bindTexture(gl.TEXTURE_2D, texture);
 }
 
-export function createBuffer(gl: WebGLRenderingContext, data: BufferSource) {
+export function createBuffer(gl: WebGLRenderingContext, data?: BufferSource) {
+  // default: 2 triangles 0-1 
+  // TODO: can we reuse the entire buffer, per context at least?
+  if (!data) data = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]);
+
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
@@ -147,12 +151,6 @@ export function boundsToMerator(extent: Bounds): Bounds {
 export function normMerc(extent: Bounds): Bounds {
   return extent.map((c, i) => c / (wmRange * 2 * (1 - (i % 2) * 2)) + 0.5);
 };
-
-export function freezeVec<T extends Float32Array | number[]>(o: T): T;
-export function freezeVec<T extends number[]>(o: T): Float32Array;
-export function freezeVec(o: any[]) {
-  return Object.freeze(new Float32Array(o));
-}
 
 
 const latToMerc = (lat: number) => Math.log(Math.tan(DEGtoTAU * (lat + 90))) * EPSG3857_R;

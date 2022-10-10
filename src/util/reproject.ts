@@ -1,7 +1,7 @@
 import { mat3, mat4 } from "gl-matrix";
-import { reproject } from "./shaders/reproject.glsl";
-import { TimeSource } from "./timeSource";
-import * as util from "./util";
+import { reproject } from "../shaders/reproject.glsl";
+import { TimeSource } from "../time/timeSource";
+import * as util from "../util";
 
 /**
  * Reprojects WGS84 source image to mercator.
@@ -10,29 +10,27 @@ export class Reprojector {
 
   constructor(
     [width, height]: [number, number],
-    bounds: [number, number, number, number],
+    boundsDeg: [number, number, number, number],
   ) {
 
     // Check if we are within a pixel of spanning the globe
-    const edgeDist = 360 - bounds[2] + bounds[0];
+    const edgeDist = 360 - boundsDeg[2] + boundsDeg[0];
     const edgeDistPx = edgeDist * width / 360;
     this.spanGlobe = Math.ceil(Math.abs(edgeDistPx)) <= 1;
     // If so, split the difference
     if (this.spanGlobe) {
       // mutating the ref
-      bounds[0] -= edgeDist / 2;
-      bounds[2] += edgeDist / 2;
+      boundsDeg[0] -= edgeDist / 2;
+      boundsDeg[2] += edgeDist / 2;
     }
-    console.log({ edgeDist, edgeDistPx, span: this.spanGlobe, b: bounds, db: bounds[2] - bounds[0] })
+    console.log({ edgeDist, edgeDistPx, span: this.spanGlobe, b: boundsDeg, db: boundsDeg[2] - boundsDeg[0] })
 
     // Calc output size
-    const mb = util.normMerc(util.boundsToMerator(bounds));
+    const mb = this.mercBoundsNorm = util.normMerc(util.boundsToMerator(boundsDeg));
     const w = mb[2] - mb[0];
     const h = mb[1] - mb[3];
     this.inputSize = [width, height];
     this.outputSize = [width, Math.round(width * h / w)];
-
-
 
     // Merc transform
     const m = mat4.create();
@@ -41,10 +39,10 @@ export class Reprojector {
     this.texToMerc = mat4.clone(m);
     this.mercToTex = mat4.clone(mat4.invert(m, m));
 
-    // Lat/lon transform. TODO: Simplify, dont need bounds and transform for this
-    const h_deg = (bounds[3] - bounds[1]) / 180;
+    // Lat/lon transform.
+    const h_deg = (boundsDeg[3] - boundsDeg[1]) / 180;
     mat4.identity(m);
-    mat4.translate(m, m, [mb[0], bounds[1] / 180 + 0.5, 0]);
+    mat4.translate(m, m, [mb[0], boundsDeg[1] / 180 + 0.5, 0]);
     mat4.scale(m, m, [w, h_deg, 1]);
     this.texToDeg = mat4.clone(m);
     this.degToTex = mat4.clone(mat4.invert(m, m));
@@ -58,10 +56,7 @@ export class Reprojector {
     // TODO: move whatever possible here instead of reproject method
     this.program = reproject(gl);
     // Could use bounds coords in the vertices? and simplify transform
-    this.quadBuffer = util.createBuffer(gl, new Float32Array([
-      0, 0, 1, 0, 0, 1,
-      0, 1, 1, 0, 1, 1
-    ]))!;
+    this.quadBuffer = util.createBuffer(gl);
     const [width, height] = this.outputSize;
     const texture = this.texture = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -80,9 +75,10 @@ export class Reprojector {
     this.texture = this.program = this.quadBuffer = null;
   }
 
-  public readonly inputSize: [number, number];
-  public readonly outputSize: [number, number];
+  public readonly inputSize: readonly [number, number];
+  public readonly outputSize: readonly [number, number];
   public readonly spanGlobe: boolean;
+  public readonly mercBoundsNorm: number[];
 
   public readonly mercToTex: mat4;
   public readonly texToMerc: mat4;
@@ -115,7 +111,7 @@ export class Reprojector {
     gl.uniformMatrix4fv(p.u_transform, false, this.texToDeg);
     gl.uniformMatrix4fv(p.u_transform_inverse, false, this.degToTex);
 
-    gl.viewport(0, 0, ...this.outputSize);
+    gl.viewport(0, 0, this.outputSize[0], this.outputSize[1]);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
