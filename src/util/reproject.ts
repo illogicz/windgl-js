@@ -23,7 +23,6 @@ export class Reprojector {
       boundsDeg[0] -= edgeDist / 2;
       boundsDeg[2] += edgeDist / 2;
     }
-    console.log({ edgeDist, edgeDistPx, span: this.spanGlobe, b: boundsDeg, db: boundsDeg[2] - boundsDeg[0] })
 
     // Calc output size
     const mb = this.mercBoundsNorm = util.normMerc(util.boundsToMerator(boundsDeg));

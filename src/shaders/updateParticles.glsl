@@ -5,10 +5,6 @@ const float wmRange = 20037508.0;
 
 #pragma glslify: transform = require(./utils/transform)
 
-float cosh(float area) {
-    return 0.5 * (pow(e, area) + pow(e, -area));    
-}
-
 
 uniform sampler2D u_particles;
 uniform sampler2D u_tex_0;
@@ -18,19 +14,20 @@ uniform sampler2D u_tex_1;
 uniform float u_tex_a;
 
 // tex to merc
-// uniform mat4 u_offset; // useful for coloring particles at some point
+uniform mat4 u_offset;
 // merc to tex, for looking up data
 uniform mat4 u_offset_inverse;
-uniform float u_speed_factor;
-
+uniform float u_time_step;
+uniform float u_span_globe;
+uniform vec2 u_padding;
 
 // ------------------------------------------------------------------------------------
-// particle drop and randomisation
+// particle drop and randomization
 
 // droprate for vis
-uniform float u_rand_seed;
 uniform float u_drop_rate;
 uniform float u_drop_rate_bump;
+uniform float u_rand_seed;
 
 // // pseudo-random generator
 const vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);
@@ -39,6 +36,11 @@ float rand(const vec2 co) {
     return fract(sin(t) * (rand_constants.z + t));
 }
 
+
+float cosh(float area) {
+    return 0.5 * (pow(e, area) + pow(e, -area));    
+
+}
 // ------------------------------------------------------------------------------------
 // Vertex
 
@@ -64,41 +66,38 @@ export void updateFragment() {
   vec2 pos = texture2D(u_particles, v_tex_pos).xy;
 
   // go from particle mercator to wind data texture coord,
-  vec2 uv_tex_pos = fract(transform(pos, u_offset_inverse));
+  vec2 tex_pos = transform(pos, u_offset_inverse);
 
   // get uv x/y/t interpolated wind speed for its position
-  vec4 c1 = texture2D(u_tex_0, uv_tex_pos);
-  vec4 c2 = texture2D(u_tex_1, uv_tex_pos);
+  vec4 c1 = texture2D(u_tex_0, tex_pos);
+  vec4 c2 = texture2D(u_tex_1, tex_pos);
   vec2 uv = mix(c1.xy, c2.xy, u_tex_a); 
 
   // Correction for resolution at this lat 
-  // Oh dear, we could already encode this correction during reprojection
-  //          which means no need to do it per fragment/particle??
-  // TODO, must be missing a PI somewhere?
-  //float res = cosh(pos.y * 2.0 - 1.0);
+  // We could in theory already encode this correction during reprojection
+  // But that complicates things for shaders that do need to true value
   vec2 speed = vec2(uv.x , -uv.y);
   float res = cosh((pos.y * 2.0 - 1.0) * PI);
-  pos = pos + speed * u_speed_factor / wmRange * res;
-  pos.x = fract(pos.x);
+  pos = pos + speed * u_time_step / wmRange * res;
 
-  // TODO, 
-  // - detect OOB, wrap earth, destoy, relocate, whatever
-  // - any other interactions with environment (meta data, pressure, speed, 3rd dim, etc etc)
-  // - Add random drops if used for visualisation, reimpelent original behaviour
-  // - draw as lines somehow if possible, we have the data from prev frame
-
+  // back to text coord
+  tex_pos = transform(pos, u_offset_inverse);
+  // use step function to check if particle went oob
+  vec2 oob_xy = step(1. + u_padding, tex_pos) + (1.0 - step(-u_padding, tex_pos));
+  // ignore x if spanning globe
+  float oob = oob_xy.x * (1.0 - u_span_globe) + oob_xy.y;
 
   // randomisation ------------------------------------------------------------------
   vec2 seed = (pos + v_tex_pos) * u_rand_seed;
-  float speed_t = length(speed) / 56.0;
-  vec2 random_pos = vec2(rand(seed + 1.3), rand(seed + 2.1));
-  float offlat = step(1.0, pos.y) + (1.0 - step(0.0, pos.y));
-  float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump + offlat;
+  vec2 random_pos = vec2(rand(seed + 1.3), rand(seed + 2.1)) * (1.0 + u_padding * 2.0) - u_padding;
+  float speed_t = (speed.x + speed.y) / 70.0;
+  float drop_rate = (u_drop_rate + speed_t * u_drop_rate_bump) * abs(u_time_step) + oob;
   float drop = step(1.0 - drop_rate, rand(seed));
   // ---------------------------------------------------------------------------------
 
-  pos = mix(pos, random_pos, drop);
+  tex_pos = mix(tex_pos, random_pos, drop);
+  tex_pos = mix(tex_pos, fract(tex_pos), u_span_globe);
 
   // update particle position
-  gl_FragColor = vec4(pos, 0.0, 1.0);
+  gl_FragColor = vec4(transform(tex_pos, u_offset), 0.0, 1.0);
 }

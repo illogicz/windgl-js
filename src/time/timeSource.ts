@@ -81,8 +81,11 @@ export class TimeSource extends EventTarget {
 
   private time: number = -1;
   private t_index = -1;
-  public getTime() { return this.time }
-  public async setTime(time: number): Promise<boolean> {
+
+  public getTime() {
+    return this.time
+  }
+  public async setTime(time: number): Promise<RenderResponse> {
     const dt = time - this.t_index;
     this.time = time;
 
@@ -96,22 +99,24 @@ export class TimeSource extends EventTarget {
     return this.canRender();
   }
 
-  private async canRender(): Promise<boolean> {
+  private async canRender(): Promise<RenderResponse> {
     // If either buffer is busy, wait it to be ready, and try again
     // (one buffer could have been invalidated while waiting for the other) 
+    let response: RenderResponse = "sync";
     while (true) {
       const b0 = this.validBuffers[0];
       if (!b0 || b0.error) return false;
-      if (b0.busy) { await b0.busy; continue }
+      if (b0.busy) { await b0.busy; response = "async"; continue }
 
       const b1 = this.validBuffers[1];
       if (!b1 || b1.error) return false;
-      if (b1.busy) { await b1.busy; continue }
+      if (b1.busy) { await b1.busy; response = "async"; continue }
 
       // Nothing waiting, buffers valid, allowed to render
       this.interpolator?.setState(b0.key % 3, b1.key % 3, this.time - b0.key);
+
       this.dispatchEvent(new Event("ready"));
-      return true;
+      return response;
     }
   }
 
@@ -206,5 +211,8 @@ export interface WindMetaData {
   transform: mat3;
   image: string,
 }
+
+type RenderResponse = false | "sync" | "async";
+
 
 const HOUR = 1000 * 60 * 60;

@@ -11,18 +11,7 @@ export abstract class TimeLayer<Props extends string> extends BaseLayer<Props> {
   }
 
   protected source?: TimeSource | undefined;
-  //private quadBuffer: WebGLBuffer | null = null;
-  //private program?: GlslProgram;
 
-  // public async setTime(time: number): Promise<void> {
-  //   if (await this.source?.setTime(time)) {
-  //     this.triggerRepaint();
-  //   }
-  // }
-
-  // public getTime(): number {
-  //   return this.source?.getTime() ?? -1;
-  // }
 
   public setSource(source?: TimeSource): void {
     if (this.source === source) return;

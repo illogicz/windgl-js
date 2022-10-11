@@ -149,7 +149,13 @@ export function boundsToMerator(extent: Bounds): Bounds {
 };
 
 export function normMerc(extent: Bounds): Bounds {
-  return extent.map((c, i) => c / (wmRange * 2 * (1 - (i % 2) * 2)) + 0.5);
+  return [
+    extent[0] / (wmRange * 2) + 0.5,
+    -extent[1] / (wmRange * 2) + 0.5,
+    extent[2] / (wmRange * 2) + 0.5,
+    -extent[3] / (wmRange * 2) + 0.5,
+  ]
+  //return extent.map((c, i) => c / (wmRange * 2 * (1 - (i % 2) * 2)) + 0.5);
 };
 
 
