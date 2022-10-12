@@ -15,8 +15,9 @@ uniform vec2 u_wrap;
 uniform vec4 u_color;
 uniform float u_size;
 
+// particle index
+attribute float a_index; 
 
-attribute float a_index; // particle index
 export void drawVertex() {
   // get particle position from texture data
   vec2 pos = texture2D(u_particles, vec2(

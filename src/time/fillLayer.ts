@@ -21,19 +21,26 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
   private quadBuffer?: WebGLBuffer;
   private program?: GlslProgram;
   private colorRampTex?: WebGLTexture;
-  private colorRange: [number, number] = [0, 30];
-  private readonly colorRampBuffer: Uint8Array = new Uint8Array(256 * 4);
+  private readonly colorRampBuffer = new Uint8Array(256 * 4);
 
+
+  public set opacity(opacity: number) {
+    this._opacity = opacity;
+    if (this.initialized) this.triggerRepaint();
+  }
+  private colorRange: [number, number] = [0, 30];
+  private _opacity = 1;
+  private renderedTime = -1;
 
   protected override initialize() {
     if (!super.initialize()) return false;
     const gl = this.gl!;
-    this.program = fillLayer(gl);
     this.quadBuffer = util.createBuffer(gl)!;
-    // gl.useProgram(p.program);
-    // gl.uniform1i(p.u_tex_0, TEX_UNIT_0);
-    // gl.uniform1i(p.u_tex_1, TEX_UNIT_1);
-    // gl.uniform1i(p.u_color_ramp, TEX_UNIT_RAMP);
+    const p = this.program = fillLayer(gl);
+    gl.useProgram(p.program);
+    gl.uniform1i(p.u_tex_0, TEX_UNIT_0);
+    gl.uniform1i(p.u_tex_1, TEX_UNIT_1);
+    gl.uniform1i(p.u_color_ramp, TEX_UNIT_RAMP);
     return true;
   }
 
@@ -50,6 +57,7 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
       this.gl?.deleteBuffer(this.quadBuffer);
       delete this.quadBuffer;
     }
+    this.renderedTime = -1;
     super.uninitialize();
   }
 
@@ -57,37 +65,44 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
     const { gl, map } = this;
     if (!gl || !map) return;
     if (!this.colorRampTex) {
-      this.colorRampTex = createColorRampTexture(gl, map, expr);
+      this.colorRampTex = createColorRampTexture(gl, map, expr, [0, 1], this.colorRampBuffer);
     } else {
-      const data = buildColorRampData(map, expr);
+      const data = buildColorRampData(map, expr, [0, 1], this.colorRampBuffer);
       gl.bindTexture(gl.TEXTURE_2D, this.colorRampTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
     }
     map.triggerRepaint();
   }
 
+  // Trigger repaint if the rendered time does not match current source time
+  public override prerender(gl: WebGLRenderingContext, matrix: mat4): void {
+
+  }
+
+  protected onTimeChanged(): void {
+    this.triggerRepaint();
+  }
+
   public render(gl: WebGLRenderingContext, matrix: mat4): void {
     const p = this.program; if (!p) return;
     const src = this.source; if (!src) return;
     if (!src.interpolator || !src.reprojector) return;
+    if (!src.ready) return;
 
     gl.useProgram(p.program);
-
-    gl.uniform1i(p.u_tex_0, TEX_UNIT_0);
-    gl.uniform1i(p.u_tex_1, TEX_UNIT_1);
-    gl.uniform1i(p.u_color_ramp, TEX_UNIT_RAMP);
-
-    src.interpolator.bind(p, gl, TEX_UNIT_0, TEX_UNIT_1, p.u_tex_a);
 
     util.bindTexture(gl, this.colorRampTex!, TEX_UNIT_RAMP);
 
     util.bindAttribute(gl, this.quadBuffer!, p.a_pos, 2);
     gl.uniform1f(p.u_color_range, this.colorRange[1] - this.colorRange[0]);
     gl.uniform1f(p.u_color_min, this.colorRange[0]);
+    gl.uniform1f(p.u_opacity, this._opacity);
 
     gl.uniform1i(p.u_color_ramp, TEX_UNIT_RAMP);
     gl.uniformMatrix4fv(p.u_offset, false, src.reprojector.texToMerc); // can keep fixed?
     gl.uniformMatrix4fv(p.u_matrix, false, matrix);
+
+    src.interpolator.bind(gl, TEX_UNIT_0, TEX_UNIT_1, p.u_tex_a);
 
     // wrap x
     // TODO: Would it be better to do this in one call, with extra triangles?
@@ -98,6 +113,10 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
       gl.uniform2f(p.u_wrap, i, 0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
+
+    src.interpolator.unbind();
+    this.renderedTime = src.getTime();
+
   }
 }
 

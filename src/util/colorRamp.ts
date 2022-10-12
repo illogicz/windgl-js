@@ -33,6 +33,7 @@ export function buildColorRampData(
   const size = isSize ? sizeOrData : sizeOrData.length / 4;
   const data = isSize ? new Uint8Array(sizeOrData * 4) : sizeOrData;
 
+  console.log({ sizeOrData, size, data })
   // let _range = [0, 1];
   // if (expr.kind === "source" || expr.kind === "composite") {
   //   _range = range;
@@ -53,11 +54,11 @@ export function createColorRampTexture(
   map: mb.Map,
   expr: mb.StylePropertyExpression,
   range: [number, number] = [0, 1],
-  size = 256,
+  sizeOrData: number | Uint8Array = 256,
   filter = WebGLRenderingContext.LINEAR
 ) {
-  const data = buildColorRampData(map, expr, range, size);
-  return createTexture(gl, filter, data, size, 1);
+  const data = buildColorRampData(map, expr, range, sizeOrData);
+  return createTexture(gl, filter, data, data.length / 4, 1);
 }
 
 export function buildColorGrid(

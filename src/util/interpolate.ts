@@ -1,6 +1,6 @@
 import { interpolate } from "../shaders/interpolate.glsl";
 import { mat4 } from "gl-matrix";
-import { getExtension } from ".";
+import { createBuffer, getExtension } from ".";
 
 /**
  * Provides 2 textures and a mix value for interpolation to a program. 
@@ -22,6 +22,7 @@ export class Interpolator {
   private gl?: WebGLRenderingContext | undefined;
   private program: GlslProgram | null = null;
   private textures: [WebGLTexture, WebGLTexture, WebGLTexture] | null = null;
+  // TODO: only a single buffer, and swap textures?
   private buffers: [WebGLFramebuffer, WebGLFramebuffer, WebGLFramebuffer] | null = null;
   private quads: WebGLBuffer | null = null;
 
@@ -71,10 +72,6 @@ export class Interpolator {
     this.program = this.quads = this.textures = this.buffers = null;
   }
 
-  // drawToBuffer(idx: number, fn:() => void){
-
-  // }
-
   getBuffer(idx: number): WebGLFramebuffer | undefined {
     return this.buffers?.[idx];
   }
@@ -85,38 +82,58 @@ export class Interpolator {
     this.tex_a = mix;
   }
 
-  bind(program: GlslProgram, gl: WebGLRenderingContext,
-    texture_unit_0 = 0,
-    texture_unit_1 = 1,
-    mix_uniform = program.u_tex_a
+  /**
+   * Bind the textures and mix uniform for the current state
+   * unbind *must* be called once operations are completed.
+   * 
+   * @param gl 
+   * @param texture_unit_0 
+   * @param texture_unit_1 
+   * @param mix_uniform_loc 
+   */
+  bind(
+    gl: WebGLRenderingContext,
+    texture_unit_0: number,
+    texture_unit_1: number,
+    mix_uniform_loc: number
   ): void {
-    if (!this.textures) return;
+    if (!this.textures) throw new Error("interpolator not ready");
+    if (gl !== this.gl) throw new Error("invalid gl context");
 
+    //if (this.bound_tex_0 !== this.tex_0) {
     gl.activeTexture(gl.TEXTURE0 + texture_unit_0);
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.tex_0]!);
-
+    this.bound_tex_0 = this.tex_0;
+    //}
+    //if (this.bound_tex_1 !== this.tex_1) {
     gl.activeTexture(gl.TEXTURE0 + texture_unit_1);
     gl.bindTexture(gl.TEXTURE_2D, this.textures[this.tex_1]!);
-
-    gl.uniform1f(mix_uniform, this.tex_a);
+    this.bound_tex_1 = this.tex_1;
+    //}
+    gl.uniform1f(mix_uniform_loc, this.tex_a);
   }
+  // Store currently bound texture indexes
+  private bound_tex_0 = -1;
+  private bound_tex_1 = -1;
+  unbind() {
+    this.bound_tex_0 = -1;
+    this.bound_tex_1 = -1;
+  }
+
+
 
   // standalone render, test mostly
   render(): void {
     const gl = this.gl; if (!gl) return;
     let p = this.program;
     if (!p) {
+      this.quads = createBuffer(gl);
 
       p = this.program = interpolate(gl); if (!p) return;
-      gl.uniformMatrix4fv(this.program.u_matrix, false, this.matrix!);
+      gl.useProgram(p.program);
+      gl.uniformMatrix4fv(p.u_matrix, false, this.matrix!);
       gl.uniform1i(p.u_tex_0, 0);
       gl.uniform1i(p.u_tex_1, 1);
-
-      this.quads = gl.createBuffer()!;
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.quads);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(
-        [0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]
-      ), gl.STATIC_DRAW);
 
     } else {
       gl.useProgram(p.program);
@@ -126,7 +143,7 @@ export class Interpolator {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quads);
     gl.vertexAttribPointer(p.a_pos, 2, gl.FLOAT, false, 0, 0);
 
-    this.bind(p, gl, 0, 1)
+    this.bind(gl, 0, 1, p.u_tex_a);
 
     gl.viewport(0, 0, ...this.size);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);

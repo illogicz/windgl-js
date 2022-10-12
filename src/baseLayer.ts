@@ -49,6 +49,8 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
 
   public onRemove(map: mb.Map) {
     this.uninitialize();
+    delete this.gl;
+    delete this.map;
   }
 
   // ------------------------------------------------------------------------------------------
@@ -104,8 +106,6 @@ export abstract class BaseLayer<Props extends string> implements mb.CustomLayerI
     this.map?.off("move", this.onMove);
     this.map?.on("webglcontextlost", this._contextLost);
     this.map?.on("webglcontextrestored", this._contextRestored);
-    delete this.gl;
-    delete this.map;
     this.initialized = false;
   }
 

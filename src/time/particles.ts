@@ -3,7 +3,6 @@ import * as util from "../util";
 import { TimeSource } from "./timeSource";
 
 
-
 export class Particles {
 
   constructor(
@@ -16,9 +15,17 @@ export class Particles {
   public dropRate = 0.00005;
   public dropRateBump = 0.0001;
   public readonly particles_res = 2 ** 10;
-  public readonly numParticles = this.particles_res ** 2;
   public get positions() { return this.particleTextures[0] }
   public get indexes() { return this.particleIndexBuffer }
+
+  // Round off to resolution
+  public set numParticles(num: number) {
+    this._numParticles = Math.ceil(num / this.particles_res) * this.particles_res;
+  }
+  public get numParticles() {
+    return this._numParticles;
+  }
+  private _numParticles = this.particles_res ** 2;
 
   private readonly padding = 0.05;
   private updateProgram!: GlslProgram;
@@ -66,25 +73,40 @@ export class Particles {
   private initializeParticles(gl: WebGLRenderingContext) {
     const src = this.source;
 
-    this.randomParticleState = new Float32Array(this.numParticles * 3);
+    const numParticles = this.particles_res ** 2
+    this.randomParticleState = new Float32Array(numParticles * 3);
     const bounds = src.reprojector?.mercBoundsNorm;
     const x_range = bounds[2] - bounds[0];
     const y_range = bounds[3] - bounds[1];
     const rand = (pad: number) => Math.random() * (1 + pad) - this.padding;
-    for (let i = 0, j = 0; i < this.numParticles; i++) {
+    for (let i = 0, j = 0; i < numParticles; i++) {
       this.randomParticleState[j++] = bounds[0] + rand(this.source.reprojector.spanGlobe ? 0 : this.padding) * x_range;
       this.randomParticleState[j++] = (1 - (bounds[1] + rand(this.padding) * y_range));
       this.randomParticleState[j++] = 0;
     }
-    const particleIndices = new Float32Array(this.numParticles);
-    for (let i = 0; i < this.numParticles; i++) particleIndices[i] = i;
+    const particleIndices = new Float32Array(numParticles);
+    for (let i = 0; i < numParticles; i++) particleIndices[i] = i;
     this.particleIndexBuffer = util.createBuffer(gl, particleIndices)!;
   }
 
-  public update(timeStep: number, steps: number = 1) {
-
+  /**
+   * Update particles. 
+   * 
+   * If steps is greater than 0, an attempt is made to run up to that
+   * many simulation steps, updating the source time for each iteration.
+   * If the source cannot provide the required data synchronously, it will 
+   * exit early, and return the amount of time the simulation completed.
+   * 
+   * If no steps are provides, it will run once, without updating source time.
+   * Intended for visualization purposes.
+   * 
+   * @param timeStep amount of time to advance per step
+   * @param steps number of steps to take.
+   * @returns amount of time the source was advanced
+   */
+  public async update(timeStep: number, steps = 0) {
     // Not progressing in time, nothing to do
-    if (timeStep === 0) return true;
+    if (timeStep === 0) return 0;
 
     const gl = this.gl;
     const p = this.updateProgram;
@@ -94,39 +116,49 @@ export class Particles {
     gl.useProgram(p.program);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer!);
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textures[1], 0);
 
     const blendingEnabled = gl.isEnabled(gl.BLEND);
-    gl.disable(gl.BLEND);
 
-    util.bindTexture(gl, textures[0], POS_TEX);
     util.bindAttribute(gl, this.quadBuffer!, p.a_particles, 2);
 
     gl.uniform1f(p.u_rand_seed, Math.random());
     gl.uniform1f(p.u_time_step, timeStep);
+    gl.uniform1f(p.u_render_perc, this.numParticles / (this.particles_res ** 2));
 
-    //-----------------------------------
-    // loop here for multiple sim steps per render cycle
-    // or just loop in shader even.
+    let stepsComplete = 0;
+    while (true) {
+      if (!this.source.ready) break;
 
-    // only u_tex_a should be getting updated 99 of the time
-    this.source.interpolator.bind(p, gl, UV_TEX_0, UV_TEX_1, p.u_tex_a);
+      // input texture 
+      util.bindTexture(gl, textures[0], POS_TEX);
+      // render to output texture
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textures[1], 0);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+      // bind interpolator textures and mix value
+      this.source.interpolator.bind(gl, UV_TEX_0, UV_TEX_1, p.u_tex_a);
 
-    // swap textures or should we use two buffers and swap those?
-    // https://stackoverflow.com/a/40626660 
-    this.particleTextures.reverse();
+      // run update
+      gl.disable(gl.BLEND);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      if (blendingEnabled) gl.enable(gl.BLEND);
 
-    //---------------
+      // swap textures
+      this.particleTextures.reverse();
 
 
-    // set blend mode back
-    if (blendingEnabled) gl.enable(gl.BLEND);
+      stepsComplete++;
+      if (!steps) break;
+      const tBefore = this.source.getTime();
+      this.source.setTime(this.source.getTime() + timeStep / (60 * 60));
+      const tAfter = this.source.getTime();
+      if (tBefore === tAfter) break;
+      if (stepsComplete === steps) break;
 
-    return true;
+    }
+    this.source.interpolator.unbind();
 
+
+    return stepsComplete * timeStep;
   }
 
   public randomize() {

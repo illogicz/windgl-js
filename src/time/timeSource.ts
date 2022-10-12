@@ -5,8 +5,6 @@ import { Reprojector } from "../util/reproject";
 
 // TODO: 
 // - Automate based on a current time value:
-//   - Compressed image data cache. 
-//   - Swapping of the 3 reprojection buffers
 //   - Server providing info on new available data
 //   - Then swap prediction for historic
 // - Make factory:
@@ -16,30 +14,12 @@ import { Reprojector } from "../util/reproject";
 
 export class TimeSource extends EventTarget {
   constructor(
-    public readonly host: string,
+    data: WindMetaData,
     public readonly scope: string,
-    private readonly metaEndpoint = "getWindPredictionMeta",
-    private readonly dataEndpoint = "getWindPrediction"
+    private readonly metaUrl: string,
+    private readonly dataUrl: string
   ) {
     super()
-  }
-
-  public gl?: WebGLRenderingContext | undefined;
-  public reprojector!: Reprojector;
-  public interpolator!: Interpolator;
-  public images = new Map<number, Promise<Blob>>();
-  public buffers: [BufferState, BufferState, BufferState] = [null, null, null];
-
-  public dataSize: [number, number] = [0, 0];
-  public get textureSize() { return this.reprojector?.outputSize }
-  public uvMax!: number;
-  public speedMax!: number;
-  public bounds!: [number, number, number, number];
-
-  public async loadMeta(time: number = new Date().valueOf() - 6 * HOUR): Promise<WindMetaData | undefined> {
-    if (this.reprojector && this.interpolator) return;
-
-    const data = await this.loadMetaData((time / HOUR));
     const { date, width, height, uvMax, bounds, ..._ } = data;
     this.bounds = bounds;
     this.uvMax = uvMax;
@@ -47,10 +27,19 @@ export class TimeSource extends EventTarget {
     this.dataSize = [width, height];
     this.reprojector = new Reprojector([width, height], this.bounds);
     this.interpolator = new Interpolator(this.reprojector.outputSize, this.reprojector.spanGlobe);
-
-    this.updateContext();
-    return data;
   }
+
+  public gl?: WebGLRenderingContext | undefined;
+  public reprojector: Reprojector;
+  public interpolator: Interpolator;
+  public images = new Map<number, Promise<Blob>>();
+  public buffers: [BufferState, BufferState, BufferState] = [null, null, null];
+
+  public dataSize: [number, number] = [0, 0];
+  public get textureSize() { return this.reprojector?.outputSize }
+  public uvMax: number;
+  public speedMax: number;
+  public bounds: [number, number, number, number];
 
   public setContext(gl?: WebGLRenderingContext): void {
     if (this.gl === gl) return;
@@ -58,34 +47,43 @@ export class TimeSource extends EventTarget {
     this.updateContext();
   }
 
-  public async loadMetaData(key: number): Promise<WindMetaData> {
-    const params = this.getParams(key);
-
-    const url = `${this.host}/${this.metaEndpoint}?${params}`;
-    const resp = await fetch(url);
-    if (resp.status !== 200) throw new Error(`Error loading wind meta data ${url}`);
-
-    return await resp.json();
-  }
-
   public async loadImage(key: number): Promise<Blob> {
     let image = this.images.get(key);
     if (image) return image;
-    const url = new URL(`${this.host}/${this.dataEndpoint}?${this.getParams(key)}`);
+    const url = new URL(`${this.dataUrl}?${getParams(key, this.scope)}`);
     image = (await fetch(url)).blob();
     this.images.set(key, image);
     return await image;
+    // image = fetch(url)
+    //   .then(res => {
+    //     const dataPromise = res.blob();
+    //     this.images.set(key, dataPromise);
+    //     return dataPromise
+    //   }).then(image => {
+    //     this.images.set(key, Promise.resolve(image));
+    //     return image;
+    //   });
+    // this.images.set(key, image);
+    // return image;
   }
-
-
 
   private time: number = -1;
   private t_index = -1;
 
+  public ready: boolean = false;
   public getTime() {
     return this.time
   }
-  public async setTime(time: number): Promise<RenderResponse> {
+
+
+  //private waiting = false;
+  public setTime(time: number): Promise<RenderResponse> {
+    if (!this.gl) throw new Error("source not ready");
+    //if (this.waiting) return false;
+
+    this.ready = false;
+    //this.waiting = true;
+
     const dt = time - this.t_index;
     this.time = time;
 
@@ -113,9 +111,13 @@ export class TimeSource extends EventTarget {
       if (b1.busy) { await b1.busy; response = "async"; continue }
 
       // Nothing waiting, buffers valid, allowed to render
-      this.interpolator?.setState(b0.key % 3, b1.key % 3, this.time - b0.key);
+      if (!this.interpolator) return false;
+      this.interpolator.setState(b0.key % 3, b1.key % 3, this.time - b0.key);
 
-      this.dispatchEvent(new Event("ready"));
+      this.ready = true;
+      //console.log("ready", this.time - b0.key);
+      this.dispatchEvent(new Event("timeChanged"));
+
       return response;
     }
   }
@@ -129,6 +131,7 @@ export class TimeSource extends EventTarget {
   }
 
   private async reproject(key: number): Promise<void> {
+
     // get current buffer state
     const idx = key % 3;
     const buffer = this.buffers[idx];
@@ -159,13 +162,17 @@ export class TimeSource extends EventTarget {
 
         // make sure we still want this image in the buffer
         // could have changed during async opperation
-        if (this.buffers[idx]?.key !== key) return;
+        if (this.buffers[idx]?.key !== key) {
+          throw new Error("invalid");
+        }
 
         // get the target buffer, reproject image data into it
-        const target = this.interpolator?.getBuffer(idx);
-        this.reprojector?.reproject(bitmap, target);
+        const target = this.interpolator!.getBuffer(idx);
+        if (!target) throw new Error("no target buffer");
+        this.reprojector!.reproject(bitmap, target);
 
       } catch (cause) {
+        console.log(cause);
         // fill with empty data ?
         state.error = new Error("Reproject Error", { cause });
       } finally {
@@ -175,25 +182,49 @@ export class TimeSource extends EventTarget {
   }
 
   private updateContext() {
-    this.reprojector?.setContext(this.gl);
-    this.interpolator?.setContext(this.gl);
-  }
-
-  private getParams(key: number) {
-    const date = new Date(key * HOUR);
-    return new URLSearchParams({
-      scope: this.scope,
-      year: date.getUTCFullYear().toString(),
-      month: (date.getUTCMonth() + 1).toString(),
-      day: date.getUTCDate().toString(),
-      hour: date.getUTCHours().toString()
-    }).toString();
+    this.reprojector.setContext(this.gl);
+    this.interpolator.setContext(this.gl);
   }
 
   // Test only
-  public render() { this.interpolator?.render() }
+  public render() { this.interpolator.render() }
 
 }
+
+
+export async function loadSource(
+  host: string,
+  scope: string,
+  metaEndpoint = "getWindPredictionMeta",
+  dataEndpoint = "getWindPrediction"
+) {
+  const dataUrl = `${host}/${dataEndpoint}`;
+  const metaUrl = `${host}/${metaEndpoint}`;
+  const initTime = Math.floor(new Date().valueOf() / (60 * 60 * 1000));
+  const metaData = await loadMetaData(initTime, scope, metaUrl);
+  return new TimeSource(metaData, scope, metaUrl, dataUrl);
+}
+
+async function loadMetaData(key: number, scope: string, path: string): Promise<WindMetaData> {
+  const params = getParams(key, scope);
+  const url = `${path}?${params}`;
+  const resp = await fetch(url);
+  if (resp.status !== 200) throw new Error(`Error loading wind meta data ${url}`);
+  return await resp.json();
+}
+
+
+function getParams(key: number, scope: string) {
+  const date = new Date(key * HOUR);
+  return new URLSearchParams({
+    scope: scope,
+    year: date.getUTCFullYear().toString(),
+    month: (date.getUTCMonth() + 1).toString(),
+    day: date.getUTCDate().toString(),
+    hour: date.getUTCHours().toString()
+  }).toString();
+}
+
 
 type BufferState = {
   key: number,

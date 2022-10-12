@@ -15,6 +15,7 @@ uniform sampler2D u_tex_1;
 uniform sampler2D u_color_ramp;
 uniform float u_color_range;
 uniform float u_color_min;
+uniform float u_opacity;
 
 attribute vec2 a_pos;
 varying vec2 v_tex_pos;
@@ -29,5 +30,5 @@ export void fillLayerFragment() {
   vec4 c2 = texture2D(u_tex_1, v_tex_pos);
   vec2 uv = mix(c1.xy, c2.xy, u_tex_a);
   vec2 ramp_pos = vec2((length(uv) - u_color_min) / u_color_range, 0.5);
-  gl_FragColor = texture2D(u_color_ramp, ramp_pos) * 0.5;
+  gl_FragColor = texture2D(u_color_ramp, ramp_pos) * u_opacity;
 }

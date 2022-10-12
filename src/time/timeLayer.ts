@@ -8,36 +8,34 @@ export abstract class TimeLayer<Props extends string> extends BaseLayer<Props> {
   constructor(propertySpec: PropertySpecs<Props>, options: LayerOptions<Props>, source?: TimeSource) {
     super(propertySpec, options);
     this.setSource(source);
+    this.onTimeChanged = this.onTimeChanged.bind(this);
   }
 
   protected source?: TimeSource | undefined;
-
+  protected abstract onTimeChanged(): void;
 
   public setSource(source?: TimeSource): void {
     if (this.source === source) return;
+    this.uninitialize();
     this.source = source;
-    if (this.source) {
-      this.initialize();
-    } else {
-      this.uninitialize();
-    }
+
+    if (this.source) this.initialize();
   }
 
   protected override initialize() {
     if (!this.source) return false;
     if (!super.initialize()) return false;
+
     this.source.setContext(this.gl);
-    this.source.addEventListener("ready", this.triggerRepaint);
+    this.source.addEventListener("timeChanged", this.onTimeChanged);
     this.triggerRepaint();
     return true;
   }
 
   protected override uninitialize() {
-    this.source?.removeEventListener("ready", this.triggerRepaint);
+    this.source?.removeEventListener("timeChanged", this.onTimeChanged);
     super.uninitialize();
   }
-
-
 
   protected onContextLost(evt: mb.MapContextEvent): void {
     //this.source?.setContext(undefined);
@@ -46,17 +44,6 @@ export abstract class TimeLayer<Props extends string> extends BaseLayer<Props> {
   protected onContextRestored(evt: mb.MapContextEvent): void {
     throw new Error("Method not implemented.");
   }
-
-  // protected override initialize(map: mb.Map, gl: WebGLRenderingContext): void {
-  //if (!this.source) return;
-  //super.initialize(map, gl);
-  //const p = this.program;
-
-  //this.quadBuffer = util.createBuffer(gl);
-  //gl.useProgram(p.program);
-  //gl.uniform1i(p.u_tex_0, TEX_UNIT_0);
-  //gl.uniform1i(p.u_tex_1, TEX_UNIT_1);
-  //}
 
 }
 

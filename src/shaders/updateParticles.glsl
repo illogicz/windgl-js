@@ -10,6 +10,8 @@ uniform sampler2D u_particles;
 uniform sampler2D u_tex_0;
 uniform sampler2D u_tex_1;
 
+uniform float u_render_perc;
+
 // interpolation params
 uniform float u_tex_a;
 
@@ -39,8 +41,8 @@ float rand(const vec2 co) {
 
 float cosh(float area) {
     return 0.5 * (pow(e, area) + pow(e, -area));    
-
 }
+
 // ------------------------------------------------------------------------------------
 // Vertex
 
@@ -52,8 +54,8 @@ varying vec2 v_tex_pos;
 
 // Mep tex to other buffer tex
 export void updateVertex() {
-  v_tex_pos = a_particles;
-  gl_Position = vec4(1.0 - 2.0 * a_particles, 0, 1);
+  v_tex_pos = a_particles * vec2(1.0, u_render_perc);
+  gl_Position = vec4(2.0 * v_tex_pos - 1.0, 0, 1);
 }
 
 

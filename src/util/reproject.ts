@@ -90,9 +90,11 @@ export class Reprojector {
   private program: GlslProgram | null = null;
   private texture: WebGLTexture | null = null;
 
-  reproject(image: ImageBitmap, target: WebGLFramebuffer | null = null) {
+  reproject(image: ImageBitmap, target: WebGLFramebuffer) {
     const gl = this.gl, p = this.program;
-    if (!gl || !p || !this.texture || !this.quadBuffer) return;
+    if (!gl || !p || !this.texture || !this.quadBuffer) {
+      throw new Error("Reprojector not ready");
+    }
 
     gl.useProgram(p.program);
     gl.bindFramebuffer(gl.FRAMEBUFFER, target);
