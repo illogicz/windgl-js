@@ -5,7 +5,7 @@ import { TimeLayer } from "./timeLayer";
 import { TimeSource } from "./timeSource";
 //
 import { mat4, vec3 } from "gl-matrix";
-import { Particles } from "./particles";
+import { Particles } from "../util/particles";
 
 export type ParticleProps = "particle-color";
 export type ParticleOptions = LayerOptions<ParticleProps>
@@ -20,9 +20,7 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
 
   public simulationMode = false;
   public simulationMaxStepTime = 60;
-
-  // fix to 1 for now, more complicated than I originally thought
-  public simulationMaxSteps = 1;
+  public simulationMaxSteps = 100;
 
   private _simulationTargetTime = - 1;
   public get simulationTargetTime() {
@@ -32,8 +30,6 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
     this._simulationTargetTime = t;
     this.triggerRepaint();
   };
-
-
 
   public visualisationTimeStep = 60;
 
@@ -113,7 +109,7 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
     this.updating = false;
   }
 
-  private maybeRepaint() {
+  private maybeRepaint = () => {
     if (!this.source) return;
     if (!this.simulationMode || this.source?.getTime() !== this.renderedTime) {
       this.triggerRepaint();

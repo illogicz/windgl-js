@@ -85,7 +85,7 @@ export function bindTexture(gl: WebGLRenderingContext, texture: WebGLTexture, un
 
 export function createBuffer(gl: WebGLRenderingContext, data?: BufferSource) {
   // default: 2 triangles 0-1 
-  // TODO: can we reuse the entire buffer, per context at least?
+  // TODO: can we reuse the entire buffer, per program/context at least?
   if (!data) data = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]);
 
   const buffer = gl.createBuffer();

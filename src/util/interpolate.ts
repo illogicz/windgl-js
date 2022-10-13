@@ -15,7 +15,7 @@ export class Interpolator {
   // paramters
   private tex_0 = 0;
   private tex_1 = 1;
-  private tex_a = 0;
+  private tex_mix = 0;
   private matrix?: mat4;
 
   // resources
@@ -79,12 +79,12 @@ export class Interpolator {
   setState(tex_0: number, tex_1: number, mix: number): void {
     this.tex_0 = tex_0;
     this.tex_1 = tex_1;
-    this.tex_a = mix;
+    this.tex_mix = mix;
   }
 
   /**
    * Bind the textures and mix uniform for the current state
-   * unbind *must* be called once operations are completed.
+   * release *must* be called once operations are completed.
    * 
    * @param gl 
    * @param texture_unit_0 
@@ -110,7 +110,7 @@ export class Interpolator {
       gl.bindTexture(gl.TEXTURE_2D, this.textures[this.tex_1]!);
       this.bound_tex_1 = this.tex_1;
     }
-    gl.uniform1f(mix_uniform_loc, this.tex_a);
+    gl.uniform1f(mix_uniform_loc, this.tex_mix);
   }
   // Store currently bound texture indexes
   private bound_tex_0 = -1;
@@ -151,8 +151,6 @@ export class Interpolator {
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
-
-
 
   private createTexture(gl: WebGLRenderingContext): [WebGLTexture, WebGLFramebuffer] {
     // Create texture

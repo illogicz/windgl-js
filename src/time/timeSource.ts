@@ -72,6 +72,12 @@ export class TimeSource extends EventTarget {
     return this.time
   }
 
+  private _suppressEvent = false;
+  public set supressEvent(suppress: boolean) {
+    if (this._suppressEvent === suppress) return;
+    this._suppressEvent = suppress;
+    if (this.ready) this.dispatchEvent(new Event("timeChanged"))
+  }
 
   //private waiting = false;
   public setTime(time: number): Promise<RenderResponse> {
@@ -113,7 +119,9 @@ export class TimeSource extends EventTarget {
 
       this.ready = true;
       //console.log("ready", this.time - b0.key);
-      this.dispatchEvent(new Event("timeChanged"));
+      if (!this._suppressEvent) {
+        this.dispatchEvent(new Event("timeChanged"));
+      }
 
       return response;
     }
