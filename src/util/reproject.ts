@@ -117,6 +117,7 @@ export class Reprojector {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.flush();
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 

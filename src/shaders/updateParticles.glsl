@@ -1,6 +1,6 @@
 precision highp float;
 const float PI = 3.141592653589;
-const float e = 2.718;
+const float e = 2.7182818284590;
 const float wmRange = 20037508.0;
 
 #pragma glslify: transform = require(./utils/transform)
@@ -99,7 +99,8 @@ export void updateFragment() {
 
   tex_pos = mix(tex_pos, random_pos, drop);
   tex_pos = mix(tex_pos, fract(tex_pos), u_span_globe);
-
   // update particle position
   gl_FragColor = vec4(transform(tex_pos, u_offset), 0.0, 1.0);
+
+   //gl_FragColor = vec4(mix(pos, transform(random_pos, u_offset), drop), 0.0, 1.0);
 }

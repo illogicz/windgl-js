@@ -104,17 +104,20 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
           steps = this.simulationMaxSteps;
         }
         //console.log({ dt, timeStep, steps });
-        this.particles.update(timeStep, steps);
-      }
-      if (this.renderedTime !== this.source.getTime()) {
-        this.triggerRepaint();
+        this.particles.update(timeStep, steps).then(this.maybeRepaint);
       }
     } else if (this.visualisationTimeStep !== 0) {
-      this.particles.update(this.visualisationTimeStep, 0);
-      this.triggerRepaint();
+      this.particles.update(this.visualisationTimeStep, 0).then(this.maybeRepaint);
     }
 
     this.updating = false;
+  }
+
+  private maybeRepaint() {
+    if (!this.source) return;
+    if (!this.simulationMode || this.source?.getTime() !== this.renderedTime) {
+      this.triggerRepaint();
+    }
   }
 
   protected onTimeChanged(): void {
@@ -123,6 +126,7 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
 
   override prerender(gl: WebGLRenderingContext) {
     this.update();
+    this.maybeRepaint();
   }
 
   public render(gl: WebGLRenderingContext, matrix: mat4): void {
@@ -171,10 +175,6 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
     this.renderedTime = src.getTime();
-
-    // if (this.simulationMode && this.simulationTargetTime !== this.renderedTime) {
-    //   this.triggerRepaint();
-    // }
   }
 
 

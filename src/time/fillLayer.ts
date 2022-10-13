@@ -87,7 +87,7 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
     const p = this.program; if (!p) return;
     const src = this.source; if (!src) return;
     if (!src.interpolator || !src.reprojector) return;
-    if (!src.ready) return;
+    //if (!src.ready) return;
 
     gl.useProgram(p.program);
 
@@ -102,7 +102,7 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
     gl.uniformMatrix4fv(p.u_offset, false, src.reprojector.texToMerc); // can keep fixed?
     gl.uniformMatrix4fv(p.u_matrix, false, matrix);
 
-    src.interpolator.bind(gl, TEX_UNIT_0, TEX_UNIT_1, p.u_tex_a);
+    src.interpolator.bindTextures(gl, TEX_UNIT_0, TEX_UNIT_1, p.u_tex_a);
 
     // wrap x
     // TODO: Would it be better to do this in one call, with extra triangles?
@@ -114,7 +114,7 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
-    src.interpolator.unbind();
+    src.interpolator.releaseTextures();
     this.renderedTime = src.getTime();
 
   }

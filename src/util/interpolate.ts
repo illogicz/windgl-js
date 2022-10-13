@@ -91,7 +91,7 @@ export class Interpolator {
    * @param texture_unit_1 
    * @param mix_uniform_loc 
    */
-  bind(
+  bindTextures(
     gl: WebGLRenderingContext,
     texture_unit_0: number,
     texture_unit_1: number,
@@ -100,22 +100,22 @@ export class Interpolator {
     if (!this.textures) throw new Error("interpolator not ready");
     if (gl !== this.gl) throw new Error("invalid gl context");
 
-    //if (this.bound_tex_0 !== this.tex_0) {
-    gl.activeTexture(gl.TEXTURE0 + texture_unit_0);
-    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.tex_0]!);
-    this.bound_tex_0 = this.tex_0;
-    //}
-    //if (this.bound_tex_1 !== this.tex_1) {
-    gl.activeTexture(gl.TEXTURE0 + texture_unit_1);
-    gl.bindTexture(gl.TEXTURE_2D, this.textures[this.tex_1]!);
-    this.bound_tex_1 = this.tex_1;
-    //}
+    if (this.bound_tex_0 !== this.tex_0) {
+      gl.activeTexture(gl.TEXTURE0 + texture_unit_0);
+      gl.bindTexture(gl.TEXTURE_2D, this.textures[this.tex_0]!);
+      this.bound_tex_0 = this.tex_0;
+    }
+    if (this.bound_tex_1 !== this.tex_1) {
+      gl.activeTexture(gl.TEXTURE0 + texture_unit_1);
+      gl.bindTexture(gl.TEXTURE_2D, this.textures[this.tex_1]!);
+      this.bound_tex_1 = this.tex_1;
+    }
     gl.uniform1f(mix_uniform_loc, this.tex_a);
   }
   // Store currently bound texture indexes
   private bound_tex_0 = -1;
   private bound_tex_1 = -1;
-  unbind() {
+  releaseTextures() {
     this.bound_tex_0 = -1;
     this.bound_tex_1 = -1;
   }
@@ -143,7 +143,7 @@ export class Interpolator {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quads);
     gl.vertexAttribPointer(p.a_pos, 2, gl.FLOAT, false, 0, 0);
 
-    this.bind(gl, 0, 1, p.u_tex_a);
+    this.bindTextures(gl, 0, 1, p.u_tex_a);
 
     gl.viewport(0, 0, ...this.size);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);

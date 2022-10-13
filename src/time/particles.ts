@@ -7,35 +7,8 @@ export class Particles {
 
   constructor(
     private source: TimeSource,
-    private gl: WebGLRenderingContext) {
-    this.initialize(gl);
-  };
-
-
-  public dropRate = 0.00005;
-  public dropRateBump = 0.0001;
-  public readonly particles_res = 2 ** 10;
-  public get positions() { return this.particleTextures[0] }
-  public get indexes() { return this.particleIndexBuffer }
-
-  // Round off to resolution
-  public set numParticles(num: number) {
-    this._numParticles = Math.ceil(num / this.particles_res) * this.particles_res;
-  }
-  public get numParticles() {
-    return this._numParticles;
-  }
-  private _numParticles = this.particles_res ** 2;
-
-  private readonly padding = 0.05;
-  private updateProgram!: GlslProgram;
-  private quadBuffer!: WebGLBuffer;
-  private particleIndexBuffer!: WebGLBuffer;
-  private particleTextures!: [WebGLTexture, WebGLTexture];
-  private frameBuffer!: WebGLFramebuffer;
-  private randomParticleState!: Float32Array;
-
-  protected initialize(gl: WebGLRenderingContext) {
+    private gl: WebGLRenderingContext
+  ) {
 
     util.getExtension(gl)('OES_texture_float');
 
@@ -60,7 +33,32 @@ export class Particles {
     gl.uniform1f(p.u_drop_rate_bump, this.dropRateBump);
     gl.uniformMatrix4fv(p.u_offset, false, texToMerc);
     gl.uniformMatrix4fv(p.u_offset_inverse, false, mercToTex);
+
+  };
+
+
+  public dropRate = 0.00005;
+  public dropRateBump = 0.0001;
+  public readonly particles_res = 2 ** 10;
+  public get positions() { return this.particleTextures[0] }
+  public get indexes() { return this.particleIndexBuffer }
+
+  // Round off to resolution
+  public set numParticles(num: number) {
+    this._numParticles = Math.ceil(num / this.particles_res) * this.particles_res;
   }
+  public get numParticles() {
+    return this._numParticles;
+  }
+  private _numParticles = this.particles_res ** 2;
+
+  private readonly padding = 0.05;
+  private updateProgram: GlslProgram;
+  private quadBuffer: WebGLBuffer;
+  private particleIndexBuffer!: WebGLBuffer;
+  private particleTextures: [WebGLTexture, WebGLTexture];
+  private frameBuffer: WebGLFramebuffer;
+  private randomParticleState!: Float32Array;
 
   public dispose() {
     this.gl.deleteProgram(this.updateProgram.program);
@@ -108,58 +106,66 @@ export class Particles {
     // Not progressing in time, nothing to do
     if (timeStep === 0) return 0;
 
-    const gl = this.gl;
-    const p = this.updateProgram;
+    const gl = this.gl; const p = this.updateProgram;
     const textures = this.particleTextures;
 
     gl.viewport(0, 0, this.particles_res, this.particles_res);
     gl.useProgram(p.program);
-
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer!);
-
-    const blendingEnabled = gl.isEnabled(gl.BLEND);
-
-    util.bindAttribute(gl, this.quadBuffer!, p.a_particles, 2);
-
     gl.uniform1f(p.u_rand_seed, Math.random());
     gl.uniform1f(p.u_time_step, timeStep);
     gl.uniform1f(p.u_render_perc, this.numParticles / (this.particles_res ** 2));
 
+    util.bindAttribute(gl, this.quadBuffer!, p.a_particles, 2);
+
+    const blendingEnabled = gl.isEnabled(gl.BLEND);
+
     let stepsComplete = 0;
     while (true) {
+      // check with source if the resources needed are ready
+      // (the 2 reprojected textures)
       if (!this.source.ready) break;
 
-      // input texture 
+      // Our input texture with positions 
       util.bindTexture(gl, textures[0], POS_TEX);
-      // render to output texture
+      // Frame buffer for output texture
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textures[1], 0);
 
       // bind interpolator textures and mix value
-      this.source.interpolator.bind(gl, UV_TEX_0, UV_TEX_1, p.u_tex_a);
+      this.source.interpolator.bindTextures(gl, UV_TEX_0, UV_TEX_1, p.u_tex_a);
 
-      // run update
+      // Disable blend mode
       gl.disable(gl.BLEND);
+
+      // Run update
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      // restore blend mode (for possible reprojections)
+      // TODO: could be skipped if we know that no projections will happen
       if (blendingEnabled) gl.enable(gl.BLEND);
+
+      // let interpolator know we are done
+      this.source.interpolator.releaseTextures();
 
       // swap textures
       this.particleTextures.reverse();
 
-
+      // Incr steps
       stepsComplete++;
+
+      // Not actually stepping in time, so do not advance time
       if (!steps) break;
-      const tBefore = this.source.getTime();
+
+      // Update source time
       this.source.setTime(this.source.getTime() + timeStep / (60 * 60));
-      const tAfter = this.source.getTime();
-      if (tBefore === tAfter) break;
+
+      // break if number of steps has completed
       if (stepsComplete === steps) break;
-
     }
-    this.source.interpolator.unbind();
-
 
     return stepsComplete * timeStep;
   }
+
 
   public randomize() {
     this.gl.bindTexture(this.gl.TEXTURE_2D, this.particleTextures[0]);

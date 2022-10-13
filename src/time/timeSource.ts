@@ -7,10 +7,6 @@ import { Reprojector } from "../util/reproject";
 // - Automate based on a current time value:
 //   - Server providing info on new available data
 //   - Then swap prediction for historic
-// - Make factory:
-//   - Preloads metadata to initialize with
-//   - Make props private/readonly as needed
-//   - And remove '!' hacks
 
 export class TimeSource extends EventTarget {
   constructor(
@@ -32,7 +28,7 @@ export class TimeSource extends EventTarget {
   public gl?: WebGLRenderingContext | undefined;
   public reprojector: Reprojector;
   public interpolator: Interpolator;
-  public images = new Map<number, Promise<Blob>>();
+  public images = new Map<number, Promise<Blob | Error>>();
   public buffers: [BufferState, BufferState, BufferState] = [null, null, null];
 
   public dataSize: [number, number] = [0, 0];
@@ -47,24 +43,25 @@ export class TimeSource extends EventTarget {
     this.updateContext();
   }
 
-  public async loadImage(key: number): Promise<Blob> {
+  public async loadImage(key: number): Promise<Blob | Error> {
     let image = this.images.get(key);
     if (image) return image;
     const url = new URL(`${this.dataUrl}?${getParams(key, this.scope)}`);
     image = (await fetch(url)).blob();
+    image = fetch(url)
+      .then(res => {
+        const dataPromise = res.blob();
+        this.images.set(key, dataPromise);
+        return dataPromise
+      }).then(image => {
+        this.images.set(key, Promise.resolve(image));
+        return image;
+      }).catch(e => {
+        this.images.set(key, e);
+        return e;
+      });
     this.images.set(key, image);
-    return await image;
-    // image = fetch(url)
-    //   .then(res => {
-    //     const dataPromise = res.blob();
-    //     this.images.set(key, dataPromise);
-    //     return dataPromise
-    //   }).then(image => {
-    //     this.images.set(key, Promise.resolve(image));
-    //     return image;
-    //   });
-    // this.images.set(key, image);
-    // return image;
+    return image;
   }
 
   private time: number = -1;
@@ -150,26 +147,29 @@ export class TimeSource extends EventTarget {
     // initialize buffer state
     return state.busy = (async () => {
       try {
-        // Get image promise
-        const image = this.images.get(key) ?? this.loadImage(key);
-
         // wait for image decode (and/or load)
-        const bitmap = await createImageBitmap(await image, {
+        const image = await (this.images.get(key) ?? this.loadImage(key));
+        if (image instanceof Error) throw image;
+
+        // mMke sure we still want this image in the buffer
+        // could have changed during async opperation
+        if (this.buffers[idx]?.key !== key) throw new Error("Invalid image");
+
+        // Decode PNG to bitmap data
+        const bitmap = await createImageBitmap(image, {
           premultiplyAlpha: 'none',
           colorSpaceConversion: 'none',
           imageOrientation: 'flipY'
         });
 
-        // make sure we still want this image in the buffer
-        // could have changed during async opperation
-        if (this.buffers[idx]?.key !== key) {
-          throw new Error("invalid");
-        }
+        // Validate again
+        if (this.buffers[idx]?.key !== key) throw new Error("Invalid bitmap");
 
-        // get the target buffer, reproject image data into it
+        // Get the target buffer, reproject image data into it
         const target = this.interpolator!.getBuffer(idx);
         if (!target) throw new Error("no target buffer");
-        this.reprojector!.reproject(bitmap, target);
+
+        this.reprojector.reproject(bitmap, target);
 
       } catch (cause) {
         console.log(cause);
@@ -233,7 +233,7 @@ type BufferState = {
 } | null
 
 
-export interface WindMetaData {
+interface WindMetaData {
   date: Date;
   width: number;
   height: number;
@@ -244,6 +244,5 @@ export interface WindMetaData {
 }
 
 type RenderResponse = false | "sync" | "async";
-
 
 const HOUR = 1000 * 60 * 60;
