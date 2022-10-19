@@ -1,5 +1,5 @@
 import type { mat4 } from "gl-matrix";
-import { arrow } from "../../shaders/arrow.glsl";
+import { arrow } from "../../shaders/tile/arrow.glsl";
 import * as util from "../../util";
 import { Tile } from "../tileID";
 import { TileLayer } from "../tileLayer";

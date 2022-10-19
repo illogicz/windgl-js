@@ -90,7 +90,7 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
     this.updating = true;
 
     if (this.simulationMode) {
-      const dt = (this.simulationTargetTime - this.source.getTime()) * 60 * 60;
+      const dt = (this.simulationTargetTime - this.source.time) * 60 * 60;
       if (dt !== 0) {
         let steps = Math.ceil(Math.abs(dt / this.simulationMaxStepTime));
         let timeStep = this.simulationMaxStepTime * Math.sign(dt);
@@ -111,7 +111,7 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
 
   private maybeRepaint = () => {
     if (!this.source) return;
-    if (!this.simulationMode || this.source?.getTime() !== this.renderedTime) {
+    if (!this.simulationMode || this.source?.time !== this.renderedTime) {
       this.triggerRepaint();
     }
   }
@@ -157,7 +157,7 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
     // particle indexes
     util.bindAttribute(gl, this.particles!.indexes, p.a_index, 1);
 
-    gl.blendFunc(gl.ONE, gl.ONE)
+    //gl.blendFunc(gl.ONE, gl.ONE)
 
     // draw particles
     const [[l], [r]] = this.map!.getBounds().toArray();
@@ -168,9 +168,9 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
       gl.drawArrays(gl.POINTS, 0, this.particles!.numParticles);
     }
 
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-    this.renderedTime = src.getTime();
+    this.renderedTime = src.time;
   }
 
 

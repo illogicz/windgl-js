@@ -1,179 +1,197 @@
-import { update } from "../shaders/updateParticles.glsl";
+import { updateHeatmap, UpdateHeatmapProgram } from "../shaders/updateHeatmap.glsl";
+import { apply } from "../shaders/applyHeatmapData.glsl";
 import * as util from ".";
 import { TimeSource } from "../time/timeSource";
 import { mat4, vec3 } from "gl-matrix";
+import { Simulation } from "./simulation";
 
 
-export class Heatmap {
+export type HeatmapOptions = {
+  readonly numSources: number,
+  readonly bounds: [number, number, number, number],
+  readonly numDataTypes: number,
+  readonly timeStep: number, // = 30,
+  readonly gridResolution: number // = 10, // meters per pixel
+  readonly getSourceData: (timestamp: number) => Iterable<{ coordinate: [number, number], data: number[] }>;
+
+  turbulance: number,
+  dropOff: number,
+}
+
+
+export class Heatmap extends Simulation {
 
   constructor(
-    private source: TimeSource,
-    private gl: WebGLRenderingContext
+    source: TimeSource,
+    gl: WebGLRenderingContext,
+    public readonly options: HeatmapOptions,
   ) {
+    const { bounds, gridResolution, numSources, numDataTypes, turbulance, timeStep } = options;
+    const f_ext = util.getExtension(gl)('OES_texture_float');
+    const f_linear_ext = util.getExtension(gl)('OES_texture_float_linear');
+    const f_blend = util.getExtension(gl)('EXT_float_blend');
 
-    this.width = source.textureSize[0];
-    this.height = source.textureSize[1];
+    // Approximate m/p resolution at lat
+    const mb = util.boundsToMerator(bounds);
+    const midLat = (mb[1] + mb[3]) / 2;
+    const resolution = Math.cosh(midLat / util.EPSG3857_R);
+    const width = Math.ceil((mb[2] - mb[0]) / (resolution * gridResolution));
+    const height = Math.ceil((mb[3] - mb[1]) / (resolution * gridResolution));
 
-    util.getExtension(gl)('OES_texture_float');
+    console.log("size = ", width, height);
+
+    super(updateHeatmap(gl), source, gl, [width, height]);
 
     this.quadBuffer = util.createBuffer(gl)!;
-    this.frameBuffer = gl.createFramebuffer()!;
+    this.sourcePositions = new Float32Array(numSources * 2);
+    this.sourceData = new Float32Array(numSources * numDataTypes);
+    this.sourcePositionBuffer = util.createBuffer(gl, this.sourcePositions)!;
+    this.sourceDataBuffer = util.createBuffer(gl, this.sourceData)!;
 
-    this.heatmapTextures = [
-      this.createTexture(gl),
-      this.createTexture(gl)
+    this.blurKernel = this.createBlurKernel(turbulance, timeStep, gridResolution);
+    this.blurSize = Math.round(Math.sqrt(this.blurKernel.length));
+
+    const { mercToTex } = this.source.reprojector;
+
+    const mbn = util.normMerc(mb);
+    const m = mat4.create();
+    mat4.translate(m, m, [mbn[0], mbn[1], 0]);
+    mat4.scale(m, m, [mbn[2] - mbn[0], mbn[3] - mbn[1], 1]);
+    this.texToMerc = mat4.clone(m);
+    this.mercToTex = mat4.clone(mat4.invert(m, m));
+    this.hm_to_uv = mat4.mul(mat4.create(), mercToTex, this.texToMerc)
+
+    const pixel_res = [
+      resolution / (util.wmRange * (mbn[2] - mbn[0])),
+      resolution / (util.wmRange * (mbn[3] - mbn[1]))
     ];
+    console.log(...pixel_res);
+    console.log(1 / width, 1 / height);
 
-    // Use a texture, vertices?
-    // how to provide input data?
-    this.sourceTexture = this.createTexture(gl);
+    gl.uniformMatrix4fv(this.program.u_hm_to_uv, false, this.hm_to_uv);
+    gl.uniform2f(this.program.u_resolution_met, pixel_res[0], pixel_res[1]);
+    gl.uniform2f(this.program.u_resolution_tex, 1 / width, 1 / height);
+    gl.uniform1i(this.program.u_heatmap, 2);
+    gl.uniform1fv(gl.getUniformLocation(this.program.program, "u_blur_kernel[0]"), this.blurKernel);
 
-    const { texToMerc, spanGlobe } = this.source.reprojector;
-    const ratio = this.gridPixelRatio;
-    const offset = mat4.scale(mat4.create(), texToMerc, [ratio, ratio, 1]);
 
-    let p = this.updateProgram = update(gl);
+    const p = this.applyProgram = apply(gl);
     gl.useProgram(p.program);
-    gl.uniform1i(p.u_tex_0, UV_TEX_UNIT_0);
-    gl.uniform1i(p.u_tex_1, UV_TEX_UNIT_1);
-    gl.uniform1f(p.u_span_globe, spanGlobe ? 1.0 : 0.0);
-    gl.uniform1f(p.u_turbulance, this.turbulance);
-    gl.uniform1f(p.u_dispersion, this.dispersion);
-    gl.uniformMatrix4fv(p.u_offset, false, offset);
-    gl.uniformMatrix4fv(p.u_offset_inverse, false, mat4.invert(mat4.create(), offset));
-
+    gl.uniform1f(p.u_size, 2);
+    gl.uniformMatrix4fv(p.u_matrix, false, this.mercToTex);
   }
 
-
-  // Number of pixels per wind source pixel
-  private readonly gridPixelRatio = 10;
-  private readonly width: number;
-  private readonly height: number;
-
-  public turbulance = 0.01; // m/s
-  public dispersion = 0.0001; // f/s
+  public get outputTexture() { return this.stateTextures[0] }
+  public get numSources() { return this.options.numSources }
+  private get numDataTypes() { return this.options.numDataTypes }
 
   // Resources
-  private updateProgram: GlslProgram;
   private quadBuffer: WebGLBuffer;
-  private heatmapTextures: [WebGLTexture, WebGLTexture];
-  private frameBuffer: WebGLFramebuffer;
-  private sourceTexture: WebGLTexture;
+
+  public readonly texToMerc: mat4;
+  private hm_to_uv: mat4;
+  private mercToTex: mat4;
+  private applyProgram: GlslProgram;
+
+  private blurSize: number;
+  private blurKernel: Float32Array;
+
+  private sourcePositions: Float32Array;
+  private sourceData: Float32Array;
+  private sourcePositionBuffer: WebGLBuffer;
+  private sourceDataBuffer: WebGLBuffer;
+  protected override textureFilter = WebGLRenderingContext.LINEAR;
 
 
-  /**
-   * Update heatmap 
-   * 
-   * If steps is greater than 0, an attempt is made to run up to that
-   * many simulation steps, updating the source time for each iteration.
-   * If the source cannot provide the required data synchronously, it will 
-   * exit early, and return the amount of time the simulation completed.
-   * 
-   * If no steps are provides, it will run once, without updating source time.
-   * Intended for visualization purposes.
-   * 
-   * @param timeStep amount of time to advance per step
-   * @param steps number of steps to take.
-   * @returns amount of time the source was advanced
-   */
-  public async update(timeStep: number, steps = 0) {
-    // Not progressing in time, nothing to do
-    if (timeStep === 0) return 0;
-
-    const gl = this.gl; const p = this.updateProgram;
-    const textures = this.heatmapTextures;
-
-    // gl.viewport(0, 0, this.width, this.height);
-    // gl.useProgram(p.program);
-    // gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer!);
-    // gl.uniform1f(p.u_time_step, timeStep);
-
-    const blendingEnabled = gl.isEnabled(gl.BLEND);
-
-    let stepsComplete = 0;
-    while (true) {
-      // check with source if the resources needed are ready
-      // (the 2 reprojected textures)
-      if (!this.source.ready) break;
-
-      if (gl.getParameter(gl.CURRENT_PROGRAM) !== p.program) {
-        gl.viewport(0, 0, this.width, this.height);
-        gl.useProgram(p.program);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer!);
-        gl.uniform1f(p.u_time_step, timeStep);
+  private createBlurKernel(
+    speed: number,     // m/s at sigma 1
+    timeStep: number,  // s
+    resolution: number // m / grid_unit
+  ) {
+    const s1_dist = speed * timeStep / resolution;
+    const rad = MAX_BLUR;
+    const len = MAX_BLUR * 2 + 1;
+    const kernel = new Array(len ** 2);
+    let sum = 0, i = 0;
+    for (let y = -rad; y <= rad; y++) {
+      for (let x = -rad; x <= rad; x++) {
+        sum += kernel[i++] = Math.exp(-((Math.sqrt(x ** 2 + y ** 2) / s1_dist) ** 2));
       }
-
-      // Our input texture with positions 
-      util.bindTexture(gl, textures[0], POS_TEX_UNIT);
-      // Frame buffer for output texture
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textures[1], 0);
-
-      // bind interpolator textures and mix value
-      this.source.interpolator.bindTextures(gl, UV_TEX_UNIT_0, UV_TEX_UNIT_1, p.u_tex_a);
-
-      // Disable blend mode
-      gl.disable(gl.BLEND);
-
-      // Run update
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-      // restore blend mode (for possible reprojections)
-      // TODO: could be skipped if we know that no projections will happen
-      if (blendingEnabled) gl.enable(gl.BLEND);
-
-      // let interpolator know we are done
-      this.source.interpolator.releaseTextures();
-
-      // swap textures
-      this.heatmapTextures.reverse();
-
-      // Incr steps
-      stepsComplete++;
-
-      // Not actually stepping in time, so do not advance time
-      if (!steps) break;
-
-      // Update source time
-      this.source.setTime(this.source.getTime() + timeStep / (60 * 60));
-
-      // break if number of steps has completed
-      if (stepsComplete === steps) break;
     }
+    console.log({ s1_dist, speed, timeStep, resolution })
+    const norm = kernel.map(v => v / sum)
+    console.log(norm.map((v, i) => v.toFixed(10) + ((i + 1) % len ? ", " : "\n")).join(''));
 
-    return stepsComplete * timeStep;
+    return new Float32Array(norm);
   }
 
+  protected override beforeUpdate(gl: WebGLRenderingContext): void {
 
-  // Upload random position buffer
-  private applyHeatmapState(gl: WebGLRenderingContext, data: Float32Array) {
+    const p = this.applyProgram;
+    gl.useProgram(p.program);
+
+    let i = 0;
+    for (const { coordinate, data } of this.options.getSourceData(this.source.time * 60 * 60 * 1000)) {
+      const coord = util.normMerc(util.toMercator(coordinate));
+      this.sourcePositions[i * 2 + 0] = coord[0];
+      this.sourcePositions[i * 2 + 1] = coord[1];
+      this.sourceData[i * 4 + 0] = data[0];
+      this.sourceData[i * 4 + 1] = data[1];
+      this.sourceData[i * 4 + 2] = data[2];
+      this.sourceData[i * 4 + 3] = data[3];
+      i++;
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sourcePositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.sourcePositions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(p.a_positions);
+    gl.vertexAttribPointer(p.a_positions, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sourceDataBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.sourceData, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(p.a_data);
+    gl.vertexAttribPointer(p.a_data, this.numDataTypes, gl.FLOAT, false, 0, 0);
+
+    gl.viewport(0, 0, ...this.size);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.stateTextures[0], 0);
+    //gl.blendFunc(gl.ONE, gl.ONE);
+
+    gl.drawArrays(gl.POINTS, 0, this.numSources);
+
+    //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+  }
+
+  protected prepareUpdate(gl: WebGLRenderingContext, p: UpdateHeatmapProgram, timeStep: number): void {
+    util.bindAttribute(gl, this.quadBuffer, p.a_pos, 2);
+  }
+  protected executeUpdate(gl: WebGLRenderingContext, p: UpdateHeatmapProgram, timeStep: number): void {
+
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(p.u_drop_off, Math.pow((1.0 - this.options.dropOff), Math.abs(timeStep)));
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  protected initializeTexture(gl: WebGLRenderingContext) {
     const level = 0, border = 0;
     const format = gl.RGBA;
     const type = gl.FLOAT;
+    const data = null;
     gl.texImage2D(gl.TEXTURE_2D, level, format,
-      this.width, this.height, border, format, type, data);
+      this.size[0], this.size[1], border, format, type, data);
   }
 
-  private createTexture(gl: WebGLRenderingContext): WebGLTexture {
-    const texture = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    return texture;
-  }
-
-
-  // Free gl resources
-  public dispose() {
-    this.gl.deleteProgram(this.updateProgram.program);
+  public override dispose() {
+    super.dispose();
+    this.gl.deleteProgram(this.applyProgram.program);
     this.gl.deleteBuffer(this.quadBuffer);
-    this.heatmapTextures?.forEach(t => this.gl?.deleteTexture(t));
-    this.gl?.deleteFramebuffer(this.frameBuffer);
+    this.gl.deleteBuffer(this.sourcePositionBuffer);
+    this.gl.deleteBuffer(this.sourceDataBuffer);
   }
 
 }
 
-const POS_TEX_UNIT = 0;
-const UV_TEX_UNIT_0 = 1;
-const UV_TEX_UNIT_1 = 2;
+const MAX_BLUR = 3;

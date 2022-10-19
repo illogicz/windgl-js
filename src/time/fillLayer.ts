@@ -115,7 +115,7 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
     }
 
     src.interpolator.releaseTextures();
-    this.renderedTime = src.getTime();
+    this.renderedTime = src.time;
 
   }
 }

@@ -1,6 +1,6 @@
 import { TileLayer } from "../tileLayer";
 import * as util from "../../util";
-import { xyFill } from "../../shaders/xyFill.glsl";
+import { xyFill } from "../../shaders/tile/xyFill.glsl";
 import { Tile } from "../tileID";
 import { WindSource } from "../tileSource";
 import { LayerOptions } from "../../baseLayer";

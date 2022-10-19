@@ -1,6 +1,6 @@
 import { TileLayer } from "../tileLayer";
 import * as util from "../../util";
-import { sampleFill } from "../../shaders/sampleFill.glsl";
+import { sampleFill } from "../../shaders/tile/sampleFill.glsl";
 import { Tile } from "../tileID";
 import { LayerOptions } from "../../baseLayer";
 //

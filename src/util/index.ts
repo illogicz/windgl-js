@@ -148,30 +148,30 @@ export function boundsToMerator(extent: Bounds): Bounds {
   ];
 };
 
-export function normMerc(extent: Bounds): Bounds {
-  return [
-    extent[0] / (wmRange * 2) + 0.5,
-    -extent[1] / (wmRange * 2) + 0.5,
-    extent[2] / (wmRange * 2) + 0.5,
-    -extent[3] / (wmRange * 2) + 0.5,
-  ]
-  //return extent.map((c, i) => c / (wmRange * 2 * (1 - (i % 2) * 2)) + 0.5);
+export function normMerc(coords: number[]): number[] {
+  return coords.map((c, i) => c / (wmRange * 2) * (i % 2 ? -1 : 1) + 0.5)
+  // return [
+  //   coords[0] / (wmRange * 2) + 0.5,
+  //   -coords[1] / (wmRange * 2) + 0.5,
+  //   coords[2] / (wmRange * 2) + 0.5,
+  //   -coords[3] / (wmRange * 2) + 0.5,
+  // ]
 };
 
 
-const latToMerc = (lat: number) => Math.log(Math.tan(DEGtoTAU * (lat + 90))) * EPSG3857_R;
+export const latToMerc = (lat: number) => Math.log(Math.tan(DEGtoTAU * (lat + 90))) * EPSG3857_R;
 export type Bounds = number[]; //[number, number, number, number];
 //export type Coordinate = number[]; //[number, number, number, number];
 
-const DEGtoRAD = Math.PI / 180;
-const DEGtoTAU = Math.PI / 360;
-const RADtoDEG = 180 / Math.PI;
-const TAUtoDEG = 360 / Math.PI;
+export const DEGtoRAD = Math.PI / 180;
+export const DEGtoTAU = Math.PI / 360;
+export const RADtoDEG = 180 / Math.PI;
+export const TAUtoDEG = 360 / Math.PI;
 
-const EPSG3857_R = 6378137;
-const EPSG3857_HS = EPSG3857_R * Math.PI;
-const EPSG3857_DEG = EPSG3857_HS / 180;
-const EPSG3857_DEG_inv = 180 / EPSG3857_HS;
-const earthRadius = 6371e3 / 1852;
-const wmRange = 20037508.342789244;
-const wmExtent = Object.freeze([-wmRange, -wmRange, wmRange, wmRange]);
+export const EPSG3857_R = 6378137;
+export const EPSG3857_HS = EPSG3857_R * Math.PI;
+export const EPSG3857_DEG = EPSG3857_HS / 180;
+export const EPSG3857_DEG_inv = 180 / EPSG3857_HS;
+export const earthRadius = 6371e3 / 1852;
+export const wmRange = 20037508.342789244;
+export const wmExtent = Object.freeze([-wmRange, -wmRange, wmRange, wmRange]);

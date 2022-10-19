@@ -10,4 +10,4 @@ export * from "./tile/tileLayer"
 export * from "./time/timeSource";
 export * from "./time/fillLayer";
 export * from "./time/particleLayer";
-
+export * from "./time/heatmapLayer";

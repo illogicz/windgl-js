@@ -1,5 +1,5 @@
 import * as util from ".";
-import { update } from "../shaders/updateParticles.glsl";
+import { update, UpdateProgram } from "../shaders/updateParticles.glsl";
 import { TimeSource } from "../time/timeSource";
 
 
@@ -65,7 +65,7 @@ export class Particles {
   private readonly padding = 0.05;
 
   // Resources
-  private updateProgram: GlslProgram;
+  private updateProgram: UpdateProgram;
   private quadBuffer: WebGLBuffer;
   private particleIndexBuffer!: WebGLBuffer;
   private particleTextures: [WebGLTexture, WebGLTexture];
@@ -142,7 +142,7 @@ export class Particles {
       if (!steps) break;
 
       // Update source time
-      this.source.setTime(this.source.getTime() + timeStep / (60 * 60));
+      this.source.setTime(this.source.time + timeStep / (60 * 60));
 
       // stop if number of steps has completed
       if (stepsComplete === steps) break;

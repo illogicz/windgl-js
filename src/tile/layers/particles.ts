@@ -3,7 +3,7 @@ import * as util from "../../util";
 import { Tile } from "../tileID";
 import { TileLayer } from "../tileLayer";
 import { WindSource } from "../tileSource";
-import { particleDraw, particleUpdate } from "../../shaders/particles.glsl";
+import { particleDraw, particleUpdate } from "../../shaders/tile/particles.glsl";
 //
 import type { mat4 } from "gl-matrix";
 import type * as mb from "maplibre-gl";
