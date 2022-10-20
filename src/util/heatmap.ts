@@ -3,23 +3,25 @@ import { apply } from "../shaders/applyHeatmapData.glsl";
 import * as util from ".";
 import { TimeSource } from "../time/timeSource";
 import { mat4, vec3 } from "gl-matrix";
-import { Simulation } from "./simulation";
+import { DEF_INPUT_TEX_UNIT, Simulation } from "./simulation";
 
 
 export type HeatmapOptions = {
+  turbulance: number,
+  dropOff: number,
+
   readonly numSources: number,
   readonly bounds: [number, number, number, number],
   readonly numDataTypes: number,
-  readonly timeStep: number, // = 30,
   readonly gridResolution: number // = 10, // meters per pixel
   readonly getSourceData: (timestamp: number) => Iterable<{ coordinate: [number, number], data: number[] }>;
 
-  turbulance: number,
-  dropOff: number,
+  readonly timeStep: number, // = 30,
+  readonly maxSteps: number,
 }
 
 
-export class Heatmap extends Simulation {
+export class Heatmap extends Simulation<UpdateHeatmapProgram> {
 
   constructor(
     source: TimeSource,
@@ -71,13 +73,13 @@ export class Heatmap extends Simulation {
     gl.uniformMatrix4fv(this.program.u_hm_to_uv, false, this.hm_to_uv);
     gl.uniform2f(this.program.u_resolution_met, pixel_res[0], pixel_res[1]);
     gl.uniform2f(this.program.u_resolution_tex, 1 / width, 1 / height);
-    gl.uniform1i(this.program.u_heatmap, 2);
+    gl.uniform1i(this.program.u_heatmap, DEF_INPUT_TEX_UNIT);
     gl.uniform1fv(gl.getUniformLocation(this.program.program, "u_blur_kernel[0]"), this.blurKernel);
 
 
     const p = this.applyProgram = apply(gl);
     gl.useProgram(p.program);
-    gl.uniform1f(p.u_size, 2);
+    //gl.uniform1f(p.u_size, 2);
     gl.uniformMatrix4fv(p.u_matrix, false, this.mercToTex);
   }
 
@@ -100,15 +102,13 @@ export class Heatmap extends Simulation {
   private sourceData: Float32Array;
   private sourcePositionBuffer: WebGLBuffer;
   private sourceDataBuffer: WebGLBuffer;
-  protected override textureFilter = WebGLRenderingContext.LINEAR;
-
 
   private createBlurKernel(
     speed: number,     // m/s at sigma 1
     timeStep: number,  // s
     resolution: number // m / grid_unit
   ) {
-    const s1_dist = speed * timeStep / resolution;
+    const s1_dist = speed * timeStep / resolution; // (m/s) * (s) / (m/g) = grid unit
     const rad = MAX_BLUR;
     const len = MAX_BLUR * 2 + 1;
     const kernel = new Array(len ** 2);
@@ -125,9 +125,9 @@ export class Heatmap extends Simulation {
     return new Float32Array(norm);
   }
 
-  protected override beforeUpdate(gl: WebGLRenderingContext): void {
+  protected override beforeUpdate(): void {
 
-    const p = this.applyProgram;
+    const p = this.applyProgram, gl = this.gl;
     gl.useProgram(p.program);
 
     let i = 0;
@@ -159,15 +159,18 @@ export class Heatmap extends Simulation {
 
     gl.drawArrays(gl.POINTS, 0, this.numSources);
 
+    gl.disableVertexAttribArray(p.a_positions);
+    gl.disableVertexAttribArray(p.a_data);
+
     //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
   }
 
-  protected prepareUpdate(gl: WebGLRenderingContext, p: UpdateHeatmapProgram, timeStep: number): void {
-    util.bindAttribute(gl, this.quadBuffer, p.a_pos, 2);
+  protected prepareUpdate(p: UpdateHeatmapProgram, timeStep: number): void {
+    util.bindAttribute(this.gl, this.quadBuffer, p.a_pos, 2);
   }
-  protected executeUpdate(gl: WebGLRenderingContext, p: UpdateHeatmapProgram, timeStep: number): void {
-
+  protected executeUpdate(p: UpdateHeatmapProgram, timeStep: number): void {
+    const gl = this.gl;
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.uniform1f(p.u_drop_off, Math.pow((1.0 - this.options.dropOff), Math.abs(timeStep)));
@@ -175,12 +178,13 @@ export class Heatmap extends Simulation {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
-  protected initializeTexture(gl: WebGLRenderingContext) {
+  protected override get textureFilter() { return this.gl.LINEAR }
+  protected initializeStateTexture() {
     const level = 0, border = 0;
-    const format = gl.RGBA;
-    const type = gl.FLOAT;
+    const format = this.gl.RGBA;
+    const type = this.gl.FLOAT;
     const data = null;
-    gl.texImage2D(gl.TEXTURE_2D, level, format,
+    this.gl.texImage2D(this.gl.TEXTURE_2D, level, format,
       this.size[0], this.size[1], border, format, type, data);
   }
 

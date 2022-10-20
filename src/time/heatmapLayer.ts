@@ -8,18 +8,17 @@ import { mat4, vec3 } from "gl-matrix";
 import { Heatmap, HeatmapOptions } from "../util/heatmap";
 export { HeatmapOptions } from "../util/heatmap";
 
-export type HeatmapProps = never;
-export type HeatmapLayerOptions = LayerOptions<HeatmapProps> & {
+export type HeatmapLayerProps = never;
+export type HeatmapLayerOptions = LayerOptions<HeatmapLayerProps> & {
   heatmapOptions?: HeatmapOptions
 }
 
 
-export class HeatmapLayer extends TimeLayer<HeatmapProps> {
-  constructor(options: HeatmapLayerOptions, source?: TimeSource) {
-    super({}, options, source);
-    this.setOptions(options.heatmapOptions);
+export class HeatmapLayer extends TimeLayer<HeatmapLayerProps> {
+  constructor({ heatmapOptions, ...layerOptions }: HeatmapLayerOptions, source?: TimeSource) {
+    super({}, layerOptions, source);
+    if (heatmapOptions) this.heatmapOptions = heatmapOptions;
   }
-  public heatmapOptions?: HeatmapOptions | undefined;
   private drawProgram?: GlslProgram;
   private quadBuffer?: WebGLBuffer;
 
@@ -36,31 +35,43 @@ export class HeatmapLayer extends TimeLayer<HeatmapProps> {
     this.triggerRepaint();
   };
 
-  public setOptions(options?: HeatmapOptions) {
-    this.heatmapOptions = options;
-    options ? this.initialize() : this.uninitialize();
-    if (options) this.simulationMaxStepTime = options.timeStep;
+
+  private _heatmapOptions: HeatmapOptions | null = null;
+  public get heatmapOptions() { return this._heatmapOptions }
+  public set heatmapOptions(options: HeatmapOptions | null) {
+    this._heatmapOptions = options;
+    if (options) {
+      this.simulationMaxStepTime = options.timeStep;
+      this.simulationMaxSteps = options.maxSteps;
+      this.initialize();
+    } else {
+      this.uninitialize();
+    }
   }
 
   public outputMultiplier = 0.01;
-
   public heatmap?: Heatmap;
 
+  public clear() {
+    this.heatmap?.reset();
+    this.triggerRepaint();
+  }
+
   protected override initialize() {
-    if (!this.heatmapOptions) return false;
+    if (!this._heatmapOptions) return false;
     if (!super.initialize()) return false;
-    const gl = this.gl!;
+    if (!this.gl || !this.source) throw new Error("Cannot initialialize layer without source and gl context");
 
-    this.heatmap = new Heatmap(this.source!, gl, this.heatmapOptions)
-    this.quadBuffer = util.createBuffer(gl)!;
-    const p = this.drawProgram = draw(gl);
-    gl.useProgram(p.program);
-
+    this.heatmap = new Heatmap(this.source, this.gl, this._heatmapOptions)
+    this.quadBuffer = util.createBuffer(this.gl)!;
+    const p = this.drawProgram = draw(this.gl);
+    this.gl.useProgram(p.program);
 
     return true;
   }
 
   protected override uninitialize() {
+    if (!this.initialized) return;
     if (this.drawProgram != null) {
       this.gl?.deleteProgram(this.drawProgram.program);
       delete this.drawProgram;

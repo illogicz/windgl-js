@@ -150,12 +150,6 @@ export function boundsToMerator(extent: Bounds): Bounds {
 
 export function normMerc(coords: number[]): number[] {
   return coords.map((c, i) => c / (wmRange * 2) * (i % 2 ? -1 : 1) + 0.5)
-  // return [
-  //   coords[0] / (wmRange * 2) + 0.5,
-  //   -coords[1] / (wmRange * 2) + 0.5,
-  //   coords[2] / (wmRange * 2) + 0.5,
-  //   -coords[3] / (wmRange * 2) + 0.5,
-  // ]
 };
 
 

@@ -17,5 +17,5 @@ export void drawVertex() {
 
 export void drawFragment() {
   vec4 data = texture2D(u_tex, v_tex_pos);
-  gl_FragColor = vec4(min(data.rgb, vec3(1.0) * u_output_mult), 0.0);
+  gl_FragColor = vec4(min(data.grb * vec3(u_output_mult), vec3(1.0)), 0.0);
 }

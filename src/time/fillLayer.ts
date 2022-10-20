@@ -87,6 +87,8 @@ export class FillLayer extends TimeLayer<FillLayerProps> {
     const p = this.program; if (!p) return;
     const src = this.source; if (!src) return;
     if (!src.interpolator || !src.reprojector) return;
+    src.setContext(gl);
+
     //if (!src.ready) return;
 
     gl.useProgram(p.program);

@@ -5,15 +5,18 @@ import { TimeLayer } from "./timeLayer";
 import { TimeSource } from "./timeSource";
 //
 import { mat4, vec3 } from "gl-matrix";
-import { Particles } from "../util/particles";
+import { ParticleOptions, Particles } from "../util/particles";
 
-export type ParticleProps = "particle-color";
-export type ParticleOptions = LayerOptions<ParticleProps>
+export type ParticleLayerProps = "particle-color";
+export type ParticleLayerOptions = LayerOptions<ParticleLayerProps> & {
+  particleOptions?: ParticleOptions
+}
 
 
-export class ParticleLayer extends TimeLayer<ParticleProps> {
-  constructor(options: ParticleOptions, source?: TimeSource) {
-    super(defaultPropertySpec, options, source);
+export class ParticleLayer extends TimeLayer<ParticleLayerProps> {
+  constructor({ particleOptions, ...layerOptions }: ParticleLayerOptions, source?: TimeSource) {
+    super(defaultPropertySpec, layerOptions, source);
+    if (particleOptions) this.particleOptions = particleOptions;
   }
   private drawProgram?: GlslProgram;
   private quadBuffer?: WebGLBuffer;
@@ -35,6 +38,20 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
 
   private renderedTime = -1;
   private particles?: Particles;
+
+  private _particleOptions: ParticleOptions | null = null;
+  public get particleOptions() { return this._particleOptions }
+  public set particleOptions(options: ParticleOptions | null) {
+    this._particleOptions = options;
+    if (options) {
+      this.simulationMaxStepTime = options.timeStep;
+      this.simulationMaxSteps = options.maxSteps;
+      this.initialize();
+    } else {
+      this.uninitialize();
+    }
+  }
+
   private _numParticles = 2 ** 20;
   public set numParticles(num: number) {
     this._numParticles = num;
@@ -48,25 +65,25 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
   }
 
   protected override initialize() {
+    if (!this.particleOptions) return false;
     if (!super.initialize()) return false;
-    const gl = this.gl!;
+    if (!this.gl || !this.source) throw new Error("Cannot initialialize layer without source and gl context");
 
-    util.getExtension(gl)('OES_texture_float');
-
-    this.particles = new Particles(this.source!, gl)
+    this.particles = new Particles(this.source!, this.gl, this.particleOptions)
     this.particles.numParticles = this._numParticles;
+    this.quadBuffer = util.createBuffer(this.gl)!;
 
-    this.quadBuffer = util.createBuffer(gl)!;
-
-    const p = this.drawProgram = draw(gl);
-    gl.useProgram(p.program);
-    gl.uniform1i(p.u_particles, POS_TEX);
-    gl.uniform1f(p.u_particles_res, this.particles.particles_res);
+    const p = this.drawProgram = draw(this.gl);
+    this.gl.useProgram(p.program);
+    this.gl.uniform1i(p.u_particles, POS_TEX);
+    this.gl.uniform1f(p.u_particles_res, this.particles.size[0]);
 
     return true;
   }
 
   protected override uninitialize() {
+    if (!this.initialized) return;
+
     if (this.drawProgram != null) {
       this.gl?.deleteProgram(this.drawProgram.program);
       delete this.drawProgram;
@@ -126,9 +143,11 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
   }
 
   public render(gl: WebGLRenderingContext, matrix: mat4): void {
+    if (!this.initialized) return;
     const p = this.drawProgram; if (!p) return;
     const src = this.source; if (!src) return;
     const p_tex = this.particles?.positions; if (!p_tex) return;
+    const p_idx = this.particles?.indexes; if (!p_idx) return;
 
     src.setContext(gl);
     gl.useProgram(p.program);
@@ -155,7 +174,7 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
 
 
     // particle indexes
-    util.bindAttribute(gl, this.particles!.indexes, p.a_index, 1);
+    util.bindAttribute(gl, p_idx, p.a_index, 1);
 
     //gl.blendFunc(gl.ONE, gl.ONE)
 
@@ -175,13 +194,13 @@ export class ParticleLayer extends TimeLayer<ParticleProps> {
 
 
   public randomize() {
-    this.particles?.randomize();
+    this.particles?.reset();
     this.renderedTime = -1;
   }
 
 }
 
-const defaultPropertySpec: PropertySpecs<ParticleProps> = {
+const defaultPropertySpec: PropertySpecs<ParticleLayerProps> = {
   "particle-color": {
     type: "color",
     default: "white",

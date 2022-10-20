@@ -171,6 +171,6 @@ type MbEvent = mb.MapLibreEvent<MouseEvent | TouchEvent | WheelEvent | undefined
 export type PropertySpecs<Props extends string> = {
   [P in Props]: mb.StylePropertySpecification;
 };
-export type LayerOptions<Props extends string> = mb.LayerSpecification & {
+export type LayerOptions<Props extends string> = Omit<mb.LayerSpecification, "type"> & {
   [K in Props]: mb.StylePropertySpecification;
 }

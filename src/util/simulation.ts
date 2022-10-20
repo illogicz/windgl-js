@@ -2,34 +2,41 @@ import * as util from ".";
 import type { TimeSource } from "../time/timeSource";
 
 
+export type SimProgram = GlslProgram<
+  "u_tex_0" |
+  "u_tex_1" |
+  "u_tex_a" |
+  "u_time_step"
+>;
+
 /**
  * Base class for simulations
  */
-export abstract class Simulation<Program extends GlslProgram = GlslProgram> {
+export abstract class Simulation<Program extends SimProgram = SimProgram> {
 
   constructor(
     protected readonly program: Program,
     protected readonly source: TimeSource,
     protected readonly gl: WebGLRenderingContext,
-    protected readonly size: [number, number],
-    params?: Partial<ProgramParams>
+    size: [number, number],
+    programParams?: Partial<ProgramParams>
   ) {
-
+    this.size = [size[0], size[1]];
     this.frameBuffer = gl.createFramebuffer()!;
     this.stateTextures = [
-      this.createStateTexture(gl, 0),
-      this.createStateTexture(gl, 1)
+      this.createStateTexture(),
+      this.createStateTexture()
     ];
 
     this.params = {
-      uv_tex_0_unit: 0,
-      uv_tex_1_unit: 1,
-      input_tex_unit: 2,
+      uv_tex_0_unit: DEF_UV_TEX_0_UNIT,
+      uv_tex_1_unit: DEF_UV_TEX_1_UNIT,
+      input_tex_unit: DEF_INPUT_TEX_UNIT,
       u_tex_0: program.u_tex_0,
       u_tex_1: program.u_tex_1,
       u_tex_mix: program.u_tex_a,
       u_time_step: program.u_time_step,
-      ...(params ?? {})
+      ...(programParams ?? {})
     };
 
     gl.useProgram(program.program);
@@ -37,18 +44,19 @@ export abstract class Simulation<Program extends GlslProgram = GlslProgram> {
     gl.uniform1i(this.params.u_tex_1, this.params.uv_tex_1_unit);
   };
 
+  public readonly size: readonly [number, number]
+
   // Resources
   protected readonly frameBuffer: WebGLFramebuffer;
   protected readonly stateTextures: [WebGLTexture, WebGLTexture];
-  protected readonly params: Required<ProgramParams>;
-  protected readonly textureFilter?: number;
+  protected readonly params: Required<Readonly<ProgramParams>>;
 
-  protected beforeUpdate(gl: WebGLRenderingContext): void { };
-  protected afterUpdate(gl: WebGLRenderingContext): void { };
-  protected abstract prepareUpdate(gl: WebGLRenderingContext, program: Program, timeStep: number): void;
-  protected abstract executeUpdate(gl: WebGLRenderingContext, program: Program, timeStep: number): void;
-
-  protected abstract initializeTexture(gl: WebGLRenderingContext): void;
+  protected beforeUpdate(): void { };
+  protected afterUpdate(): void { };
+  protected abstract prepareUpdate(program: Program, timeStep: number): void;
+  protected abstract executeUpdate(program: Program, timeStep: number): void;
+  protected abstract initializeStateTexture(): void;
+  protected abstract get textureFilter(): number;
 
   /**
    * Update sim state. 
@@ -83,7 +91,7 @@ export abstract class Simulation<Program extends GlslProgram = GlslProgram> {
       // (the 2 reprojected textures)
       if (!this.source.ready) break;
 
-      this.beforeUpdate(gl);
+      this.beforeUpdate();
 
       // Reapply program state if is was changed
       if (gl.getParameter(gl.CURRENT_PROGRAM) !== p.program) {
@@ -92,7 +100,7 @@ export abstract class Simulation<Program extends GlslProgram = GlslProgram> {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
         gl.uniform1f(u_time_step, timeStep);
         gl.disable(gl.BLEND);
-        this.prepareUpdate(gl, p, timeStep);
+        this.prepareUpdate(p, timeStep);
         this.source.interpolator.releaseTextures();
       }
 
@@ -106,7 +114,7 @@ export abstract class Simulation<Program extends GlslProgram = GlslProgram> {
       this.source.interpolator.bindTextures(gl, uv_tex_0_unit, uv_tex_1_unit, u_tex_mix);
 
       // execute program
-      this.executeUpdate(gl, p, timeStep);
+      this.executeUpdate(p, timeStep);
 
       // restore blend mode (for possible reprojection operation)
       if (blendingEnabled) gl.enable(gl.BLEND);
@@ -123,7 +131,7 @@ export abstract class Simulation<Program extends GlslProgram = GlslProgram> {
       // Update source time
       this.source.setTime(this.source.time + timeStep / (60 * 60));
 
-      this.afterUpdate(gl);
+      this.afterUpdate();
 
       // stop if number of steps has completed
       if (stepsComplete === steps) break;
@@ -136,15 +144,23 @@ export abstract class Simulation<Program extends GlslProgram = GlslProgram> {
     return stepsComplete * timeStep;
   }
 
+  public reset() {
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.stateTextures[0]);
+    this.initializeStateTexture();
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.stateTextures[1]);
+    this.initializeStateTexture();
+  }
+
   // Create particle position texture
-  protected createStateTexture(gl: WebGLRenderingContext, idx: number): WebGLTexture {
+  protected createStateTexture(): WebGLTexture {
+    const gl = this.gl;
     const texture = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); //this.textureFilter ?? gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); //this.textureFilter ?? gl.NEAREST);
-    this.initializeTexture(gl);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.textureFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this.textureFilter);
+    this.initializeStateTexture();
     return texture;
   }
 
@@ -167,3 +183,7 @@ type ProgramParams = {
   uv_tex_1_unit?: number,
   input_tex_unit?: number
 }
+
+export const DEF_UV_TEX_0_UNIT = 0;
+export const DEF_UV_TEX_1_UNIT = 1;
+export const DEF_INPUT_TEX_UNIT = 2;

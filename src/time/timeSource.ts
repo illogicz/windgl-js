@@ -74,7 +74,7 @@ export class TimeSource extends EventTarget {
       .then(res => {
         const dataPromise = res.blob();
         this._images.set(key, dataPromise);
-        return dataPromise
+        return dataPromise;
       }).then(image => {
         this._images.set(key, Promise.resolve(image));
         return image;

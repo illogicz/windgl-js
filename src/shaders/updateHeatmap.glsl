@@ -15,8 +15,6 @@ const float BLUR_DIM = 7.0;
 const int BLUR_SIZE = 49;
 uniform float u_blur_kernel[49];
 
-
-
 varying vec2 v_tex_pos;
 attribute vec2 a_pos;
    

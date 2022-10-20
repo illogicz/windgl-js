@@ -120,38 +120,6 @@ export class Interpolator {
     this.bound_tex_1 = -1;
   }
 
-
-
-  // standalone render, test mostly
-  render(): void {
-    const gl = this.gl; if (!gl) return;
-    let p = this.program;
-    if (!p) {
-      this.quads = createBuffer(gl);
-
-      p = this.program = interpolate(gl); if (!p) return;
-      gl.useProgram(p.program);
-      gl.uniformMatrix4fv(p.u_matrix, false, this.matrix!);
-      gl.uniform1i(p.u_tex_0, 0);
-      gl.uniform1i(p.u_tex_1, 1);
-
-    } else {
-      gl.useProgram(p.program);
-    }
-
-    gl.enableVertexAttribArray(p.a_pos);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quads);
-    gl.vertexAttribPointer(p.a_pos, 2, gl.FLOAT, false, 0, 0);
-
-    this.bindTextures(gl, 0, 1, p.u_tex_a);
-
-    gl.viewport(0, 0, ...this.size);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-  }
-
   private createTexture(gl: WebGLRenderingContext): [WebGLTexture, WebGLFramebuffer] {
     // Create texture
     const texture = gl.createTexture()!;

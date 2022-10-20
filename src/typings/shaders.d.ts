@@ -1,10 +1,10 @@
 
 declare type GlslProgram<Props extends string = string> = { program: WebGLProgram } & Record<Props, any>
 
-declare module "*/drawParticles.glsl" {
-    type Props = "u_particles_res" | "a_index" | "u_particles" | "u_matrix" | "u_wrap" | "u_size" | "u_color";
-    export type DrawProgram = GlslProgram<Props>;
-    export const draw: (gl: WebGLRenderingContext) => DrawProgram;
+declare module "*/fillLayer.glsl" {
+    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex_0" | "u_tex_1" | "u_color_ramp" | "u_tex_a" | "u_color_range" | "u_color_min" | "u_opacity";
+    export type FillLayerProgram = GlslProgram<Props>;
+    export const fillLayer: (gl: WebGLRenderingContext) => FillLayerProgram;
 }
 
 declare module "*/drawHeatmap.glsl" {
@@ -13,10 +13,10 @@ declare module "*/drawHeatmap.glsl" {
     export const draw: (gl: WebGLRenderingContext) => DrawProgram;
 }
 
-declare module "*/fillLayer.glsl" {
-    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex_0" | "u_tex_1" | "u_color_ramp" | "u_tex_a" | "u_color_range" | "u_color_min" | "u_opacity";
-    export type FillLayerProgram = GlslProgram<Props>;
-    export const fillLayer: (gl: WebGLRenderingContext) => FillLayerProgram;
+declare module "*/drawParticles.glsl" {
+    type Props = "u_particles_res" | "a_index" | "u_particles" | "u_matrix" | "u_wrap" | "u_size" | "u_color";
+    export type DrawProgram = GlslProgram<Props>;
+    export const draw: (gl: WebGLRenderingContext) => DrawProgram;
 }
 
 declare module "*/tile/particles.glsl" {
@@ -24,6 +24,12 @@ declare module "*/tile/particles.glsl" {
     export type ParticleUpdateProgram = GlslProgram<Props>;
     export const particleUpdate: (gl: WebGLRenderingContext) => ParticleUpdateProgram;export type ParticleDrawProgram = GlslProgram<Props>;
     export const particleDraw: (gl: WebGLRenderingContext) => ParticleDrawProgram;
+}
+
+declare module "*/tile/xyFill.glsl" {
+    type Props = "u_wind_res" | "u_matrix" | "u_offset" | "a_pos" | "u_bli_enabled" | "u_opacity" | "u_wind" | "u_offset_inverse";
+    export type XyFillProgram = GlslProgram<Props>;
+    export const xyFill: (gl: WebGLRenderingContext) => XyFillProgram;
 }
 
 declare module "*/tile/arrow.glsl" {
@@ -38,18 +44,6 @@ declare module "*/tile/sampleFill.glsl" {
     export const sampleFill: (gl: WebGLRenderingContext) => SampleFillProgram;
 }
 
-declare module "*/tile/xyFill.glsl" {
-    type Props = "u_wind_res" | "u_matrix" | "u_offset" | "a_pos" | "u_bli_enabled" | "u_opacity" | "u_wind" | "u_offset_inverse";
-    export type XyFillProgram = GlslProgram<Props>;
-    export const xyFill: (gl: WebGLRenderingContext) => XyFillProgram;
-}
-
-declare module "*/interpolate.glsl" {
-    type Props = "a_pos" | "u_tex_0" | "u_tex_1" | "u_tex_a";
-    export type InterpolateProgram = GlslProgram<Props>;
-    export const interpolate: (gl: WebGLRenderingContext) => InterpolateProgram;
-}
-
 declare module "*/updateParticles.glsl" {
     type Props = "u_padding" | "u_offset_inverse" | "u_time_step" | "u_span_globe" | "u_render_perc" | "a_particles" | "u_particles" | "u_tex_0" | "u_tex_1" | "u_offset" | "u_tex_a" | "u_drop_rate" | "u_drop_rate_bump" | "u_rand_seed";
     export type UpdateProgram = GlslProgram<Props>;
@@ -62,14 +56,20 @@ declare module "*/reproject.glsl" {
     export const reproject: (gl: WebGLRenderingContext) => ReprojectProgram;
 }
 
-declare module "*/applyHeatmapData.glsl" {
-    type Props = "u_matrix" | "a_positions" | "a_data";
-    export type ApplyProgram = GlslProgram<Props>;
-    export const apply: (gl: WebGLRenderingContext) => ApplyProgram;
+declare module "*/interpolate.glsl" {
+    type Props = "a_pos" | "u_tex_0" | "u_tex_1" | "u_tex_a";
+    export type InterpolateProgram = GlslProgram<Props>;
+    export const interpolate: (gl: WebGLRenderingContext) => InterpolateProgram;
 }
 
 declare module "*/updateHeatmap.glsl" {
     type Props = "a_pos" | "u_tex_a" | "u_tex_0" | "u_tex_1" | "u_heatmap" | "u_hm_to_uv" | "u_resolution_met" | "u_resolution_tex" | "u_time_step" | "u_drop_off" | "u_blur_kernel";
     export type UpdateHeatmapProgram = GlslProgram<Props>;
     export const updateHeatmap: (gl: WebGLRenderingContext) => UpdateHeatmapProgram;
+}
+
+declare module "*/applyHeatmapData.glsl" {
+    type Props = "u_matrix" | "a_positions" | "a_data";
+    export type ApplyProgram = GlslProgram<Props>;
+    export const apply: (gl: WebGLRenderingContext) => ApplyProgram;
 }
