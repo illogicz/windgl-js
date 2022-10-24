@@ -1,5 +1,5 @@
 import * as util from ".";
-import type { TimeSource } from "../time/timeSource";
+import type { UVTSource } from "../time/UVTSource";
 
 
 export type SimProgram = GlslProgram<
@@ -16,7 +16,7 @@ export abstract class Simulation<Program extends SimProgram = SimProgram> {
 
   constructor(
     protected readonly program: Program,
-    protected readonly source: TimeSource,
+    protected readonly source: UVTSource,
     protected readonly gl: WebGLRenderingContext,
     size: [number, number],
     programParams?: Partial<ProgramParams>

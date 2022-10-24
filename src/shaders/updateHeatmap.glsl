@@ -1,6 +1,6 @@
 precision highp float;
 
-#pragma glslify: getSpeed = require(./utils/getSpeed) 
+#pragma glslify: sampleUV = require(./data/sampleUV) 
 #pragma glslify: transform = require(./utils/transform)
 
 uniform sampler2D u_heatmap;
@@ -31,7 +31,7 @@ export void updateHeatmapVertex() {
 export void updateHeatmapFragment() { 
 
   vec2 uv_pos = transform(v_tex_pos, u_hm_to_uv);
-  vec2 speed = getSpeed(uv_pos);
+  vec2 speed = sampleUV(uv_pos);
   vec2 tex_dist = u_time_step * speed * u_resolution_met;
   vec2 sample_pos = v_tex_pos - tex_dist;
 

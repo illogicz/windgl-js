@@ -1,20 +1,20 @@
 import { BaseLayer, LayerOptions, PropertySpecs } from "../baseLayer";
-import { TimeSource } from "./timeSource";
+import { UVTSource } from "./UVTSource";
 //
 import type * as mb from "maplibre-gl";
 
 export abstract class TimeLayer<Props extends string> extends BaseLayer<Props> {
 
-  constructor(propertySpec: PropertySpecs<Props>, options: LayerOptions<Props>, source?: TimeSource) {
+  constructor(propertySpec: PropertySpecs<Props>, options: LayerOptions<Props>, source?: UVTSource) {
     super(propertySpec, options);
     this.setSource(source);
     this.onTimeChanged = this.onTimeChanged.bind(this);
   }
 
-  protected source?: TimeSource | undefined;
+  protected source?: UVTSource | undefined;
   protected abstract onTimeChanged(): void;
 
-  public setSource(source?: TimeSource): void {
+  public setSource(source?: UVTSource): void {
     if (this.source === source) return;
     this.uninitialize();
     this.source = source;

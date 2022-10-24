@@ -1,7 +1,7 @@
 import { updateHeatmap, UpdateHeatmapProgram } from "../shaders/updateHeatmap.glsl";
 import { apply } from "../shaders/applyHeatmapData.glsl";
 import * as util from ".";
-import { TimeSource } from "../time/timeSource";
+import { UVTSource } from "../time/UVTSource";
 import { mat4, vec3 } from "gl-matrix";
 import { DEF_INPUT_TEX_UNIT, Simulation } from "./simulation";
 
@@ -24,7 +24,7 @@ export type HeatmapOptions = {
 export class Heatmap extends Simulation<UpdateHeatmapProgram> {
 
   constructor(
-    source: TimeSource,
+    source: UVTSource,
     gl: WebGLRenderingContext,
     public readonly options: HeatmapOptions,
   ) {

@@ -1,22 +1,16 @@
 
 declare type GlslProgram<Props extends string = string> = { program: WebGLProgram } & Record<Props, any>
 
-declare module "*/fillLayer.glsl" {
-    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex_0" | "u_tex_1" | "u_color_ramp" | "u_tex_a" | "u_color_range" | "u_color_min" | "u_opacity";
-    export type FillLayerProgram = GlslProgram<Props>;
-    export const fillLayer: (gl: WebGLRenderingContext) => FillLayerProgram;
-}
-
-declare module "*/drawHeatmap.glsl" {
-    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex" | "u_output_mult";
-    export type DrawProgram = GlslProgram<Props>;
-    export const draw: (gl: WebGLRenderingContext) => DrawProgram;
-}
-
 declare module "*/drawParticles.glsl" {
     type Props = "u_particles_res" | "a_index" | "u_particles" | "u_matrix" | "u_wrap" | "u_size" | "u_color";
     export type DrawProgram = GlslProgram<Props>;
     export const draw: (gl: WebGLRenderingContext) => DrawProgram;
+}
+
+declare module "*/fillLayer.glsl" {
+    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex_a" | "u_tex_0" | "u_tex_1" | "u_color_ramp" | "u_color_range" | "u_color_min" | "u_opacity";
+    export type FillLayerProgram = GlslProgram<Props>;
+    export const fillLayer: (gl: WebGLRenderingContext) => FillLayerProgram;
 }
 
 declare module "*/tile/particles.glsl" {
@@ -26,16 +20,22 @@ declare module "*/tile/particles.glsl" {
     export const particleDraw: (gl: WebGLRenderingContext) => ParticleDrawProgram;
 }
 
-declare module "*/tile/xyFill.glsl" {
-    type Props = "u_wind_res" | "u_matrix" | "u_offset" | "a_pos" | "u_bli_enabled" | "u_opacity" | "u_wind" | "u_offset_inverse";
-    export type XyFillProgram = GlslProgram<Props>;
-    export const xyFill: (gl: WebGLRenderingContext) => XyFillProgram;
+declare module "*/drawHeatmap.glsl" {
+    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex" | "u_output_mult";
+    export type DrawProgram = GlslProgram<Props>;
+    export const draw: (gl: WebGLRenderingContext) => DrawProgram;
 }
 
 declare module "*/tile/arrow.glsl" {
     type Props = "u_dimensions" | "u_speed_max" | "u_wind" | "a_corner" | "u_wind_min" | "u_wind_max" | "u_matrix" | "u_offset" | "a_pos" | "u_color_ramp" | "u_halo_color";
     export type ArrowProgram = GlslProgram<Props>;
     export const arrow: (gl: WebGLRenderingContext) => ArrowProgram;
+}
+
+declare module "*/tile/xyFill.glsl" {
+    type Props = "u_wind_res" | "u_matrix" | "u_offset" | "a_pos" | "u_bli_enabled" | "u_opacity" | "u_wind" | "u_offset_inverse";
+    export type XyFillProgram = GlslProgram<Props>;
+    export const xyFill: (gl: WebGLRenderingContext) => XyFillProgram;
 }
 
 declare module "*/tile/sampleFill.glsl" {
@@ -50,16 +50,10 @@ declare module "*/updateParticles.glsl" {
     export const update: (gl: WebGLRenderingContext) => UpdateProgram;
 }
 
-declare module "*/reproject.glsl" {
-    type Props = "a_pos" | "u_input" | "u_transform" | "u_transform_inverse" | "u_input_size";
-    export type ReprojectProgram = GlslProgram<Props>;
-    export const reproject: (gl: WebGLRenderingContext) => ReprojectProgram;
-}
-
-declare module "*/interpolate.glsl" {
-    type Props = "a_pos" | "u_tex_0" | "u_tex_1" | "u_tex_a";
-    export type InterpolateProgram = GlslProgram<Props>;
-    export const interpolate: (gl: WebGLRenderingContext) => InterpolateProgram;
+declare module "*/applyHeatmapData.glsl" {
+    type Props = "u_matrix" | "a_positions" | "a_data";
+    export type ApplyProgram = GlslProgram<Props>;
+    export const apply: (gl: WebGLRenderingContext) => ApplyProgram;
 }
 
 declare module "*/updateHeatmap.glsl" {
@@ -68,8 +62,8 @@ declare module "*/updateHeatmap.glsl" {
     export const updateHeatmap: (gl: WebGLRenderingContext) => UpdateHeatmapProgram;
 }
 
-declare module "*/applyHeatmapData.glsl" {
-    type Props = "u_matrix" | "a_positions" | "a_data";
-    export type ApplyProgram = GlslProgram<Props>;
-    export const apply: (gl: WebGLRenderingContext) => ApplyProgram;
+declare module "*/data/reproject.glsl" {
+    type Props = "a_pos" | "u_input" | "u_transform" | "u_transform_inverse" | "u_input_size";
+    export type ReprojectProgram = GlslProgram<Props>;
+    export const reproject: (gl: WebGLRenderingContext) => ReprojectProgram;
 }

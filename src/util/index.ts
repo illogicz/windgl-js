@@ -1,5 +1,6 @@
 import { mat3, mat4 } from "gl-matrix";
-import { MercatorCoordinate } from "maplibre-gl";
+import { glMatrix } from "gl-matrix";
+glMatrix.setMatrixArrayType(Array);
 
 
 function createShader(gl: WebGLRenderingContext, type: number, source: string) {
@@ -134,6 +135,16 @@ export function mat3toMat4(m: mat3): mat4 {
   ]).toFloat32Array();
 }
 
+export function fract(n: number) {
+  return n - Math.floor(n);
+}
+
+//export function lerp() 
+
+
+
+
+
 export function toMercator([lon, lat]: [number, number]): [number, number] {
   return [
     lon * EPSG3857_DEG,
@@ -169,3 +180,5 @@ export const EPSG3857_DEG_inv = 180 / EPSG3857_HS;
 export const earthRadius = 6371e3 / 1852;
 export const wmRange = 20037508.342789244;
 export const wmExtent = Object.freeze([-wmRange, -wmRange, wmRange, wmRange]);
+
+export const HOUR = 1000 * 60 * 60;

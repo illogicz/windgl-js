@@ -52,7 +52,7 @@ attribute vec2 a_particles;
 // Individual particle positions
 varying vec2 v_tex_pos;
 
-// Mep tex to other buffer tex
+// Map tex to other buffer tex
 export void updateVertex() {
   v_tex_pos = a_particles * vec2(1.0, u_render_perc);
   gl_Position = vec4(2.0 * v_tex_pos - 1.0, 0, 1);

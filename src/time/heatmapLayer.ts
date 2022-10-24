@@ -2,7 +2,7 @@ import { LayerOptions, PropertySpecs } from "../baseLayer";
 import { draw } from "../shaders/drawHeatmap.glsl";
 import * as util from "../util";
 import { TimeLayer } from "./timeLayer";
-import { TimeSource } from "./timeSource";
+import { UVTSource } from "./UVTSource";
 //
 import { mat4, vec3 } from "gl-matrix";
 import { Heatmap, HeatmapOptions } from "../util/heatmap";
@@ -15,7 +15,7 @@ export type HeatmapLayerOptions = LayerOptions<HeatmapLayerProps> & {
 
 
 export class HeatmapLayer extends TimeLayer<HeatmapLayerProps> {
-  constructor({ heatmapOptions, ...layerOptions }: HeatmapLayerOptions, source?: TimeSource) {
+  constructor({ heatmapOptions, ...layerOptions }: HeatmapLayerOptions, source?: UVTSource) {
     super({}, layerOptions, source);
     if (heatmapOptions) this.heatmapOptions = heatmapOptions;
   }

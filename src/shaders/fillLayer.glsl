@@ -1,15 +1,11 @@
 precision highp float;
 #pragma glslify: transform = require(./utils/transform)
+#pragma glslify: sampleUV = require(./data/sampleUV) 
 
 // transform
 uniform mat4 u_matrix;
 uniform mat4 u_offset;
 uniform vec2 u_wrap;
-
-// interpolation params
-uniform float u_tex_a;
-uniform sampler2D u_tex_0;
-uniform sampler2D u_tex_1;
 
 // color
 uniform sampler2D u_color_ramp;
@@ -26,9 +22,7 @@ export void fillLayerVertex() {
 }
 
 export void fillLayerFragment() {
-  vec4 c1 = texture2D(u_tex_0, v_tex_pos);
-  vec4 c2 = texture2D(u_tex_1, v_tex_pos);
-  vec2 uv = mix(c1.xy, c2.xy, u_tex_a);
-  vec2 ramp_pos = vec2((length(uv) - u_color_min) / u_color_range, 0.5);
+  float speed = length(sampleUV(v_tex_pos));
+  vec2 ramp_pos = vec2((speed - u_color_min) / u_color_range, 0.5);
   gl_FragColor = texture2D(u_color_ramp, ramp_pos) * u_opacity;
 }

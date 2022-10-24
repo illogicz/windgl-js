@@ -1,18 +1,18 @@
-import { interpolate } from "../shaders/interpolate.glsl";
-import { mat4 } from "gl-matrix";
-import { createBuffer, getExtension } from ".";
+import { mat4, ReadonlyVec2 } from "gl-matrix";
+import { getExtension } from ".";
+//import { interpolate } from "../shaders/data/interpolate.glsl";
 
 /**
  * Provides 2 textures and a mix value for interpolation to a program. 
  */
 export class Interpolator {
 
-  constructor(private size: readonly [number, number], wrap: boolean) {
+  constructor(private size: ReadonlyVec2, wrap: boolean) {
     // seems broken
     //if (wrap) this.wrap_s = WebGLRenderingContext.REPEAT;
   };
 
-  // paramters
+  // paramters 
   private tex_0 = 0;
   private tex_1 = 1;
   private tex_mix = 0;

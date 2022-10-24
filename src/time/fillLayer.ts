@@ -2,7 +2,7 @@ import { mat4 } from "gl-matrix";
 import { LayerOptions, PropertySpecs } from "../baseLayer";
 import { fillLayer } from "../shaders/fillLayer.glsl";
 import { buildColorRampData, createColorRampTexture } from "../util/colorRamp";
-import { TimeSource } from "./timeSource";
+import { UVTSource } from "./UVTSource";
 import * as util from "../util";
 //
 import type * as mb from "maplibre-gl";
@@ -14,7 +14,7 @@ export type FillLayerOptions = LayerOptions<FillLayerProps>
 
 export class FillLayer extends TimeLayer<FillLayerProps> {
 
-  constructor(options: FillLayerOptions, source?: TimeSource) {
+  constructor(options: FillLayerOptions, source?: UVTSource) {
     super(defaultPropertySpec, options, source);
   }
 

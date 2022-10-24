@@ -1,6 +1,8 @@
 import { mat3 } from "gl-matrix";
+import { HOUR } from "../util";
 import { Interpolator } from "../util/interpolate";
 import { Reprojector } from "../util/reproject";
+import { UVDataReader } from "./UVDataReader";
 
 
 // TODO: 
@@ -8,14 +10,14 @@ import { Reprojector } from "../util/reproject";
 //   - Server providing info on new available data
 //   - Then swap prediction for historic
 
-export class TimeSource extends EventTarget {
+export class UVTSource extends EventTarget {
   constructor(
     data: WindMetaData,
     public readonly scope: string,
     private readonly metaUrl: string,
     private readonly dataUrl: string
   ) {
-    super()
+    super();
     const { date, width, height, uvMax, bounds, ..._ } = data;
     this.bounds = bounds;
     this.uvMax = uvMax;
@@ -23,10 +25,12 @@ export class TimeSource extends EventTarget {
     this.dataSize = [width, height];
     this.reprojector = new Reprojector([width, height], this.bounds);
     this.interpolator = new Interpolator(this.reprojector.outputSize, this.reprojector.spanGlobe);
+    this.reader = new UVDataReader(this);
   }
 
   public readonly reprojector: Reprojector;
   public readonly interpolator: Interpolator;
+  public readonly reader: UVDataReader;
   public readonly dataSize: readonly [number, number] = [0, 0];
   public readonly uvMax: number;
   public readonly speedMax: number;
@@ -43,6 +47,7 @@ export class TimeSource extends EventTarget {
   private _ready = false;
   private _suppressEvent = false;
   private tex_index = -1;
+
 
   //private waiting = false;
   public setTime(time: number): Promise<RenderResponse> {
@@ -65,6 +70,7 @@ export class TimeSource extends EventTarget {
     return this.canRender();
   }
 
+  /** (pre)load image PNG data */
   public async loadImage(key: number): Promise<Blob | Error> {
     let image = this._images.get(key);
     if (image) return image;
@@ -94,6 +100,16 @@ export class TimeSource extends EventTarget {
     this.gl = gl;
     this.updateContext();
   }
+
+  // public readAverage(bounds: Bounds): [number, number] {
+
+  // }
+  // public readLocation(coord: [number, number]): [number, number] {
+
+  // }
+
+
+
 
   private async canRender(): Promise<RenderResponse> {
     // If either buffer is busy, wait it to be ready, and try again
@@ -151,14 +167,14 @@ export class TimeSource extends EventTarget {
     return state.busy = (async () => {
       try {
         // wait for image decode (and/or load)
-        const image = await (this._images.get(key) ?? this.loadImage(key));
+        const image = await this.loadImage(key);
         if (image instanceof Error) throw image;
 
-        // mMke sure we still want this image in the buffer
+        // Make sure we still want this image in the buffer
         // could have changed during async opperation
         if (this._buffers[idx]?.key !== key) throw new Error("Invalid image");
 
-        // Decode PNG to bitmap data
+        // Decode PNG to image bitmap
         const bitmap = await createImageBitmap(image, {
           premultiplyAlpha: 'none',
           colorSpaceConversion: 'none',
@@ -185,7 +201,6 @@ export class TimeSource extends EventTarget {
   }
 
 
-
   public set supressEvent(suppress: boolean) {
     if (this._suppressEvent === suppress) return;
     this._suppressEvent = suppress;
@@ -199,6 +214,8 @@ export class TimeSource extends EventTarget {
 }
 
 
+
+
 export async function loadSource(
   host: string,
   scope: string,
@@ -209,7 +226,7 @@ export async function loadSource(
   const metaUrl = `${host}/${metaEndpoint}`;
   const initTime = Math.floor(new Date().valueOf() / (60 * 60 * 1000));
   const metaData = await loadMetaData(initTime, scope, metaUrl);
-  return new TimeSource(metaData, scope, metaUrl, dataUrl);
+  return new UVTSource(metaData, scope, metaUrl, dataUrl);
 }
 
 async function loadMetaData(key: number, scope: string, path: string): Promise<WindMetaData> {
@@ -252,4 +269,3 @@ interface WindMetaData {
 
 type RenderResponse = false | "sync" | "async";
 
-const HOUR = 1000 * 60 * 60;

@@ -2,7 +2,7 @@ import { LayerOptions, PropertySpecs } from "../baseLayer";
 import { draw } from "../shaders/drawParticles.glsl";
 import * as util from "../util";
 import { TimeLayer } from "./timeLayer";
-import { TimeSource } from "./timeSource";
+import { UVTSource } from "./UVTSource";
 //
 import { mat4, vec3 } from "gl-matrix";
 import { ParticleOptions, Particles } from "../util/particles";
@@ -14,7 +14,7 @@ export type ParticleLayerOptions = LayerOptions<ParticleLayerProps> & {
 
 
 export class ParticleLayer extends TimeLayer<ParticleLayerProps> {
-  constructor({ particleOptions, ...layerOptions }: ParticleLayerOptions, source?: TimeSource) {
+  constructor({ particleOptions, ...layerOptions }: ParticleLayerOptions, source?: UVTSource) {
     super(defaultPropertySpec, layerOptions, source);
     if (particleOptions) this.particleOptions = particleOptions;
   }

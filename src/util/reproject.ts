@@ -1,6 +1,5 @@
-import { mat3, mat4 } from "gl-matrix";
-import { reproject } from "../shaders/reproject.glsl";
-import { TimeSource } from "../time/timeSource";
+import { mat4, vec2, mat2, ReadonlyVec2, ReadonlyMat4 } from "gl-matrix";
+import { reproject } from "../shaders/data/reproject.glsl";
 import * as util from "../util";
 
 /**
@@ -9,8 +8,8 @@ import * as util from "../util";
 export class Reprojector {
 
   constructor(
-    [width, height]: [number, number],
-    boundsDeg: [number, number, number, number],
+    [width, height]: ReadonlyVec2,
+    public readonly boundsDeg: [number, number, number, number],
   ) {
 
     // Check if we are within a pixel of spanning the globe
@@ -74,16 +73,16 @@ export class Reprojector {
     this.texture = this.program = this.quadBuffer = null;
   }
 
-  public readonly inputSize: readonly [number, number];
-  public readonly outputSize: readonly [number, number];
+  public readonly inputSize: ReadonlyVec2;
+  public readonly outputSize: ReadonlyVec2;
   public readonly spanGlobe: boolean;
   public readonly mercBoundsNorm: number[];
 
   public readonly mercToTex: mat4;
   public readonly texToMerc: mat4;
 
-  private readonly degToTex: mat4;
-  private readonly texToDeg: mat4;
+  public readonly degToTex: ReadonlyMat4;
+  public readonly texToDeg: mat4;
 
   private gl?: WebGLRenderingContext | undefined;
   private quadBuffer: WebGLBuffer | null = null;
@@ -110,7 +109,7 @@ export class Reprojector {
     gl.uniform2f(p.u_input_size, image.width, image.height);
 
     gl.uniformMatrix4fv(p.u_transform, false, this.texToDeg);
-    gl.uniformMatrix4fv(p.u_transform_inverse, false, this.degToTex);
+    gl.uniformMatrix4fv(p.u_transform_inverse, false, this.degToTex as mat4);
 
     gl.viewport(0, 0, this.outputSize[0], this.outputSize[1]);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -123,4 +122,42 @@ export class Reprojector {
 
   }
 
+
+  private _readCanvas?: HTMLCanvasElement;
+  private get readCanvas() {
+    if (!this._readCanvas) {
+      this._readCanvas = document.createElement("canvas");
+      this._readCanvas.width = this.inputSize[0];
+      this._readCanvas.height = this.inputSize[1];
+    }
+    return this._readCanvas;
+  }
+  readCoordinates(image: ImageBitmap, coords: vec2[]): vec2[] {
+    const bm_ctx = this.readCanvas.getContext("bitmaprenderer")!;
+    const ctx = this.readCanvas.getContext("2d")!;
+    bm_ctx.transferFromImageBitmap(image);
+    return coords.map(c => {
+      const [x, y] = vec2.mul(vb0, vec2.transformMat4(vb0, c, this.degToTex), this.inputSize);
+      const { data } = ctx.getImageData(x, y, 2, 2);
+      const fx = util.fract(x);
+      const uv0 = vec2.lerp(vb0, rgbToUint(data, 0), rgbToUint(data, 4), fx);
+      const uv1 = vec2.lerp(vb1, rgbToUint(data, 8), rgbToUint(data, 12), fx);
+      return uintToUV(vec2.lerp(vb0, uv0, uv1, util.fract(y)));
+    });
+  }
+
 }
+
+
+const rgbToUint = (data: Uint8ClampedArray, offset: number): vec2 => [
+  // UUUUUUUU-UUUUVVVV-VVVVVVVV-aaaaaaaa
+  data[offset + 0] << 4 | data[offset + 1] >> 4,
+  (data[offset + 1] & 0b1111) << 8 | data[offset + 2]
+];
+const uintToUV = (uint: vec2): vec2 => [
+  uint[0] / 0xFFF * 80 - 40,
+  uint[1] / 0xFFF * 80 - 40
+];
+
+const vb0 = vec2.create();
+const vb1 = vec2.create();

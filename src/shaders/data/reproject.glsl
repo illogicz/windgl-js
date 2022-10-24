@@ -55,11 +55,7 @@ export void reprojectFragment() {
     // get as 12 bit uints, mix linearly
     vec2 uv = mix(RGBtoUV(t1), RGBtoUV(t2), fract(tex_y));
 
-    // output to all 4 channels.
-    //vec2 uv8 = uv / 16.0;
-    //gl_FragColor = vec4(floor(uv8) / 255.0, fract(uv8));
-
-    // Output to 16 bit float, actual values?
+    // Output to 16 bit float
     gl_FragColor = vec4(uv / (16.0 * 256.0) * 80.0 - 40.0, 0.0, 0.0); 
 }
 
