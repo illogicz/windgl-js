@@ -44,9 +44,11 @@ export class HeatmapLayer extends TimeLayer<HeatmapLayerProps> {
       this.simulationMaxStepTime = options.timeStep;
       this.simulationMaxSteps = options.maxSteps;
       this.initialize();
+      if (this.heatmap) this.heatmap.options.dropOff = options?.dropOff
     } else {
       this.uninitialize();
     }
+
   }
 
   public outputMultiplier = 0.01;

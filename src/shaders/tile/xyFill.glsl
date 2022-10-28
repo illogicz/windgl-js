@@ -1,8 +1,8 @@
 precision mediump float;
 
+#pragma glslify: transform = require(./utils/transform)
 #pragma glslify: wgs84ToMercator = require(./utils/wgs84ToMercator)
 #pragma glslify: mercatorToWGS84 = require(./utils/mercatorToWGS84)
-#pragma glslify: transform = require(./utils/transform)
 
 uniform mat4 u_matrix;
 uniform mat4 u_offset;
@@ -24,7 +24,6 @@ varying vec2 v_tex_pos; // the position in the texture to find
 
 
 attribute vec2 a_pos;
-
 vec4 windTexture(const vec2 uv) {
     return texture2D(u_wind, uv);
 }

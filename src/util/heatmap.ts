@@ -115,7 +115,8 @@ export class Heatmap extends Simulation<UpdateHeatmapProgram> {
     let sum = 0, i = 0;
     for (let y = -rad; y <= rad; y++) {
       for (let x = -rad; x <= rad; x++) {
-        sum += kernel[i++] = Math.exp(-((Math.sqrt(x ** 2 + y ** 2) / s1_dist) ** 2));
+        const dist = Math.sqrt(x ** 2 + y ** 2);
+        sum += kernel[i++] = Math.exp(-((dist / s1_dist) ** 2));
       }
     }
     console.log({ s1_dist, speed, timeStep, resolution })

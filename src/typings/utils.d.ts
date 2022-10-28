@@ -5,8 +5,15 @@ declare interface ObjectConstructor {
 
 type Entry<T> = [P, NonNullable<T[P]>];
 
-declare module "*/data/interpolate.glsl" {
-  type Props = "a_pos" | "u_tex_0" | "u_tex_1" | "u_tex_a";
-  export type InterpolateProgram = GlslProgram<Props>;
-  export const interpolate: (gl: WebGLRenderingContext) => InterpolateProgram;
-}
+// declare module "*/data/interpolate.glsl" {
+//   type Props = "a_pos" | "u_tex_0" | "u_tex_1" | "u_tex_a";
+//   export type InterpolateProgram = GlslProgram<Props>;
+//   export const interpolate: (gl: WebGLRenderingContext) => InterpolateProgram;
+// }
+
+// declare module "*/arrow.glsl" {
+//   //type Props = "a_pos" | "u_tex_0" | "u_tex_1" | "u_tex_a";
+//   //export type InterpolateProgram = GlslProgram<Props>;
+//   export const arrow: (gl: WebGLRenderingContext) => GlslProgram<Props>;
+// }
+

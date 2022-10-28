@@ -11,17 +11,4 @@ vec2 mercatorToWGS84(vec2 xy) {
     return vec2(xy.x, atan(exp(y)) * 2.0 / PI );
 }
 
-#pragma glslify: export(mercatorToWGS84)
-
-/* ORIG
-vec2 mercatorToWGS84(vec2 xy) {
-    // convert lat into an angle
-    float y = radians(180.0 - xy.y * 360.0);
-    // use the formula to convert mercator -> WGS84
-    y = 360.0 / PI  * atan(exp(y)) - 90.0;
-    // normalize back into 0..1 interval
-    y = y / -180.0 + 0.5;
-    // pass lng through, as it doesn't change
-    return vec2(xy.x, y);
-}
-*/
+#pragma glslify: export(mercatorToWGS84) 

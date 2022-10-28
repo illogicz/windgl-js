@@ -175,7 +175,8 @@ const plugins = [
   // },
   makeGLSL({ 
     include: "./src/shaders/**/*.glsl",
-    typingsFile: "./src/typings/shaders.d.ts"
+    typingsFile: "./src/typings/shaders.d.ts",
+    baseDir: "./src/shaders/"
    }),
   resolve(),
   commonjs(),

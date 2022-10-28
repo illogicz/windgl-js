@@ -13,7 +13,6 @@ export class UVDataReader {
       h / (b[3] - b[1])
     ]);
     mat3.translate(m, m, [-b[0], -b[1]]);
-    console.log(m);
   }
   private readonly degToPixel: ReadonlyMat3;
 

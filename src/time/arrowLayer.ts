@@ -1,133 +1,127 @@
-// TODO
+import { mat4 } from "gl-matrix";
+import { LayerOptions } from "../baseLayer";
+import * as util from "../util";
+import { TimeLayer } from "./timeLayer";
+import { arrow, ArrowProgram } from "../shaders/arrow.glsl";
+//
+import type * as mb from "maplibre-gl";
+import { UVTSource } from "./UVTSource";
 
-// import type { mat4 } from "gl-matrix";
-// import { LayerOptions } from "../baseLayer";
-// import * as util from "../util";
-// import { WindSource as TimeSource } from "./tileSource";
-// import { TimeLayer } from "./timeLayer";
-// //
-// import type * as mb from "maplibre-gl";
-// export type ArrowProps = "arrow-min-size" | "arrow-color" | "arrow-halo-color";
-// export type ArrowOptions = LayerOptions<ArrowProps>
+export type ArrowProps = never;
+export type ArrowOptions = LayerOptions<ArrowProps>
 
-// export class Arrows extends TimeLayer<ArrowProps> {
+export class ArrowLayer extends TimeLayer<ArrowProps> {
+  protected onTimeChanged(): void {
 
-//   constructor(options: ArrowOptions, source: TimeSource) {
-//     super(defaultProperties, options, source);
-//   }
+  }
 
-//   private arrowsProgram!: GlslProgram;
-//   private cols!: number;
-//   private rows!: number;
-//   private positionsBuffer: WebGLBuffer | null = null;
-//   private cornerBuffer: WebGLBuffer | null = null;
-//   protected arrowMinSize!: number;
-//   protected arrowHaloColor!: {
-//     a: number;
-//     r: number;
-//     g: number;
-//     b: number;
-//   }
+  constructor(options: ArrowOptions, source?: UVTSource) {
+    super({}, options, source);
+  }
 
-//   protected override initialize(map: mb.Map, gl: WebGLRenderingContext) {
-//      super.initialize(map, gl);
-//      this.arrowsProgram = arrow(gl);
-//      this.initializeGrid();
-//   }
+  private readonly arrowSize = 50;
+  private readonly maxScreenSize = [2560, 1440];
+  private readonly maxArrows = (
+    Math.ceil(this.maxScreenSize[0] / this.arrowSize) *
+    Math.ceil(this.maxScreenSize[1] / this.arrowSize)
+  );
 
-//   protected setArrowColor(expr: mb.StylePropertyExpression) {
-//     //this.buildColorRamp(expr);
-//   }
+  private program?: ArrowProgram;
+  private indexBuffer: WebGLBuffer | null = null;
+  private cornerBuffer: WebGLBuffer | null = null;
 
-//   private initializeGrid() {
-//     //this.cols = this.windData.tileWidth;
-//     //this.rows = this.windData.tileHeight;
+  protected override initialize() {
+    if (!super.initialize()) return false;
+    this.initializeGrid();
+    const gl = this.gl!;
+    const p = this.program = arrow(gl);
+    gl.useProgram(p.program);
+    gl.uniform1i(p.u_tex_0, TEX_UNIT_0);
+    gl.uniform1i(p.u_tex_1, TEX_UNIT_1);
 
-//     const numTriangles = this.rows * this.cols * 2;
-//     const numVertices = numTriangles * 3;
-//     const positions = new Float32Array(2 * numVertices);
-//     const corners = new Float32Array(2 * numVertices);
-//     for (let i = 0; i < this.cols; i++) {
-//       for (let j = 0; j < this.rows; j++) {
-//         const index = (i * this.rows + j) * 12;
-//         positions.set([i, j, i, j, i, j, i, j, i, j, i, j], index);
-//         corners.set([-1, 1, 1, 1, 1, -1, -1, 1, 1, -1, -1, -1], index);
-//       }
-//     }
-//     this.positionsBuffer = util.createBuffer(this.gl!, positions);
-//     this.cornerBuffer = util.createBuffer(this.gl!, corners);
-//   }
+    // gl.useProgram(p.program);
+    // gl.uniform1i(p.u_tex_0, TEX_UNIT_0);
+    // gl.uniform1i(p.u_tex_1, TEX_UNIT_1);
+    // gl.uniform1i(p.u_color_ramp, TEX_UNIT_RAMP);
+    return true;
+  }
 
-//   /**
-//    * This figures out the ideal number or rows and columns to show.
-//    *
-//    * NB: Returns [cols, rows] as that is [x,y] which makes more sense.
-//    */
-//   private computeDimensions(gl: WebGLRenderingContext, map: mb.Map, minSize: number, cols: number, rows: number) {
-//     // If we are rendering multiple copies of the world, then we only care
-//     // about the square in the middle, as other code will take care of the
-//     // aditional coppies.
-//     const [w, h] =
-//       map.getBounds().getEast() - 180 - (map.getBounds().getWest() + 180) > 0
-//         ? [gl.canvas.height, gl.canvas.height]
-//         : [gl.canvas.width, gl.canvas.height];
 
-//     const z = map.getZoom();
+  protected override uninitialize() {
+    if (this.program != null) {
+      this.gl?.deleteProgram(this.program.program);
+      delete this.program;
+    }
+    if (this.indexBuffer != null) {
+      this.gl?.deleteBuffer(this.indexBuffer);
+      this.indexBuffer = null;
+    }
+    if (this.cornerBuffer != null) {
+      this.gl?.deleteBuffer(this.cornerBuffer);
+      this.cornerBuffer = null;
+    }
+    super.uninitialize();
+  }
 
-//     // Either we show the grid size of the data, or we show fewer such
-//     // that these should be about ~minSize.
-//     // return [
-//     //   Math.min(Math.floor((Math.floor(z + 1) * w) / minSize), cols) - 1,
-//     //   Math.min(Math.floor((Math.floor(z + 1) * h) / minSize), rows) - 1
-//     // ]
-//     return [
-//       Math.min(Math.floor(w / minSize), cols) - 1,
-//       Math.min(Math.floor(h / minSize), rows) - 1
-//     ];
-//   }
+  private initializeGrid() {
+    const numTriangles = this.maxArrows * 2;
+    const numVertices = numTriangles * 3;
+    const indices = new Float32Array(numVertices);
+    const corners = new Float32Array(2 * numVertices);
+    for (let i = 0; i < this.maxArrows; i++) {
+      indices.set([i, i, i, i, i, i], i * 6);
+      corners.set([
+        -1, 1, 1, 1, 1, -1,
+        -1, 1, 1, -1, -1, -1
+      ], i * 12);
+    }
+    this.indexBuffer = util.createBuffer(this.gl!, indices);
+    this.cornerBuffer = util.createBuffer(this.gl!, corners);
+  }
 
-//   public draw(gl: WebGLRenderingContext, matrix: mat4, offset: Float32List) {
-//     const program = this.arrowsProgram;
-//     gl.useProgram(program.program);
+  private computeDimensions(gl: WebGLRenderingContext, map: mb.Map) {
+    const width = Math.min(gl.canvas.width, this.maxScreenSize[0]);
+    const height = Math.min(gl.canvas.height, this.maxScreenSize[1]);
+    return [
+      Math.ceil(width / this.arrowSize),
+      Math.ceil(height / this.arrowSize)
+    ];
+  }
 
-//     util.bindAttribute(gl, this.positionsBuffer!, program.a_pos, 2);
-//     util.bindAttribute(gl, this.cornerBuffer!, program.a_corner, 2);
+  public render(gl: WebGLRenderingContext, matrix: mat4) {
+    const p = this.program; if (!p) return;
+    const src = this.source; if (!src) return;
 
-//     //util.bindTexture(gl, tile.getTexture!(gl), 0);
-//     //util.bindTexture(gl, this.colorRampTexture!, 2);
+    gl.useProgram(p.program);
 
-//     gl.uniform1i(program.u_wind, 0);
-//     gl.uniform1i(program.u_color_ramp, 2);
-//     const [cols, rows] = this.computeDimensions(
-//       gl,
-//       this.map!,
-//       this.arrowMinSize,
-//       this.cols,
-//       this.rows
-//     );
-//     // TODO, fix projection distortion
-//     gl.uniform2f(program.u_dimensions, cols, rows);
+    util.bindAttribute(gl, this.indexBuffer!, p.a_index, 1);
+    util.bindAttribute(gl, this.cornerBuffer!, p.a_vert, 2);
 
-//     const { uMin, vMin, uMax, vMax, width, height, speedMax } = this.windData;
+    //util.bindTexture(gl, tile.getTexture!(gl), 0);
+    //util.bindTexture(gl, this.colorRampTexture!, 2);
 
-//     gl.uniform2f(program.u_wind_res, width, height);
-//     gl.uniform2f(program.u_wind_min, uMin, vMin);
-//     gl.uniform2f(program.u_wind_max, uMax, vMax);
-//     gl.uniform1f(program.u_speed_max, speedMax); //
-//     gl.uniformMatrix4fv(program.u_offset, false, offset);
-//     gl.uniform4f(
-//       program.u_halo_color,
-//       this.arrowHaloColor.r,
-//       this.arrowHaloColor.g,
-//       this.arrowHaloColor.b,
-//       this.arrowHaloColor.a
-//     );
+    //gl.uniform1i(p.u_color_ramp, 2);
 
-//     gl.uniformMatrix4fv(program.u_matrix, false, matrix);
-//     // if these were put in a smarter order, we could optimize this call further
-//     gl.drawArrays(gl.TRIANGLES, 0, this.rows * Math.floor(cols) * 6);
-//   }
-// }
+    const [cols, rows] = this.computeDimensions(gl, this.map!);
+
+    gl.uniform2f(p.u_dimensions, cols, rows);
+    gl.uniform1i(p.u_tex_0, TEX_UNIT_0);
+    gl.uniform1i(p.u_tex_1, TEX_UNIT_1);
+
+    gl.uniformMatrix4fv(p.u_coord_to_uv, false, this.source!.reprojector.mercToTex);
+    gl.uniformMatrix4fv(p.u_uv_to_coord, false, this.source!.reprojector.texToMerc);
+    gl.uniformMatrix4fv(p.u_screen_to_coord, false, mat4.invert(mat4.create(), matrix));
+
+    src.interpolator.bindTextures(gl, TEX_UNIT_0, TEX_UNIT_1, p.u_tex_a);
+    gl.drawArrays(gl.TRIANGLES, 0, rows * cols * 6);
+
+    gl.disableVertexAttribArray(p.a_index);
+    gl.disableVertexAttribArray(p.a_vert);
+  }
+}
+
+const TEX_UNIT_0 = 0;
+const TEX_UNIT_1 = 1;
 
 
 // const defaultProperties = {

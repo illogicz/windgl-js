@@ -7,19 +7,6 @@ declare module "*/drawParticles.glsl" {
     export const draw: (gl: WebGLRenderingContext) => DrawProgram;
 }
 
-declare module "*/fillLayer.glsl" {
-    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex_a" | "u_tex_0" | "u_tex_1" | "u_color_ramp" | "u_color_range" | "u_color_min" | "u_opacity";
-    export type FillLayerProgram = GlslProgram<Props>;
-    export const fillLayer: (gl: WebGLRenderingContext) => FillLayerProgram;
-}
-
-declare module "*/tile/particles.glsl" {
-    type Props = "u_wind_res" | "u_particles" | "u_wind_top_left" | "u_wind_top_center" | "u_wind_top_right" | "u_wind_middle_left" | "u_wind_middle_center" | "u_wind_middle_right" | "u_wind_bottom_left" | "u_wind_bottom_center" | "u_wind_bottom_right" | "u_wind_min" | "u_wind_max" | "u_bli_enabled" | "u_speed_max" | "u_data_matrix" | "u_offset" | "u_particles_res" | "a_pos" | "u_speed_factor" | "a_index" | "u_initialize" | "u_rand_seed" | "u_drop_rate" | "u_drop_rate_bump" | "u_offset_inverse" | "u_matrix" | "u_color_ramp";
-    export type ParticleUpdateProgram = GlslProgram<Props>;
-    export const particleUpdate: (gl: WebGLRenderingContext) => ParticleUpdateProgram;export type ParticleDrawProgram = GlslProgram<Props>;
-    export const particleDraw: (gl: WebGLRenderingContext) => ParticleDrawProgram;
-}
-
 declare module "*/drawHeatmap.glsl" {
     type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex" | "u_output_mult";
     export type DrawProgram = GlslProgram<Props>;
@@ -32,22 +19,29 @@ declare module "*/tile/arrow.glsl" {
     export const arrow: (gl: WebGLRenderingContext) => ArrowProgram;
 }
 
-declare module "*/tile/xyFill.glsl" {
-    type Props = "u_wind_res" | "u_matrix" | "u_offset" | "a_pos" | "u_bli_enabled" | "u_opacity" | "u_wind" | "u_offset_inverse";
-    export type XyFillProgram = GlslProgram<Props>;
-    export const xyFill: (gl: WebGLRenderingContext) => XyFillProgram;
-}
-
 declare module "*/tile/sampleFill.glsl" {
     type Props = "u_wind_res" | "u_matrix" | "u_offset" | "a_pos" | "u_wind_min" | "u_wind_max" | "u_bli_enabled" | "u_speed_max" | "u_opacity" | "u_wind" | "u_color_ramp" | "u_offset_inverse";
     export type SampleFillProgram = GlslProgram<Props>;
     export const sampleFill: (gl: WebGLRenderingContext) => SampleFillProgram;
 }
 
+declare module "*/tile/particles.glsl" {
+    type Props = "u_wind_res" | "u_particles" | "u_wind_top_left" | "u_wind_top_center" | "u_wind_top_right" | "u_wind_middle_left" | "u_wind_middle_center" | "u_wind_middle_right" | "u_wind_bottom_left" | "u_wind_bottom_center" | "u_wind_bottom_right" | "u_wind_min" | "u_wind_max" | "u_bli_enabled" | "u_speed_max" | "u_data_matrix" | "u_offset" | "u_particles_res" | "a_pos" | "u_speed_factor" | "a_index" | "u_initialize" | "u_rand_seed" | "u_drop_rate" | "u_drop_rate_bump" | "u_offset_inverse" | "u_matrix" | "u_color_ramp";
+    export type ParticleUpdateProgram = GlslProgram<Props>;
+    export const particleUpdate: (gl: WebGLRenderingContext) => ParticleUpdateProgram;export type ParticleDrawProgram = GlslProgram<Props>;
+    export const particleDraw: (gl: WebGLRenderingContext) => ParticleDrawProgram;
+}
+
 declare module "*/updateParticles.glsl" {
     type Props = "u_padding" | "u_offset_inverse" | "u_time_step" | "u_span_globe" | "u_render_perc" | "a_particles" | "u_particles" | "u_tex_0" | "u_tex_1" | "u_offset" | "u_tex_a" | "u_drop_rate" | "u_drop_rate_bump" | "u_rand_seed";
     export type UpdateProgram = GlslProgram<Props>;
     export const update: (gl: WebGLRenderingContext) => UpdateProgram;
+}
+
+declare module "*/fillLayer.glsl" {
+    type Props = "a_pos" | "u_matrix" | "u_offset" | "u_wrap" | "u_tex_a" | "u_tex_0" | "u_tex_1" | "u_color_ramp" | "u_color_range" | "u_color_min" | "u_opacity";
+    export type FillLayerProgram = GlslProgram<Props>;
+    export const fillLayer: (gl: WebGLRenderingContext) => FillLayerProgram;
 }
 
 declare module "*/applyHeatmapData.glsl" {
@@ -66,4 +60,16 @@ declare module "*/data/reproject.glsl" {
     type Props = "a_pos" | "u_input" | "u_transform" | "u_transform_inverse" | "u_input_size";
     export type ReprojectProgram = GlslProgram<Props>;
     export const reproject: (gl: WebGLRenderingContext) => ReprojectProgram;
+}
+
+declare module "*/tile/xyFill.glsl" {
+    type Props = "u_wind_res" | "u_matrix" | "u_offset" | "a_pos" | "u_bli_enabled" | "u_opacity" | "u_wind" | "u_offset_inverse";
+    export type XyFillProgram = GlslProgram<Props>;
+    export const xyFill: (gl: WebGLRenderingContext) => XyFillProgram;
+}
+
+declare module "*/arrow.glsl" {
+    type Props = "u_dimensions" | "a_index" | "a_vert" | "u_screen_to_coord" | "u_coord_to_uv" | "u_uv_to_coord" | "u_tex_a" | "u_tex_0" | "u_tex_1";
+    export type ArrowProgram = GlslProgram<Props>;
+    export const arrow: (gl: WebGLRenderingContext) => ArrowProgram;
 }
