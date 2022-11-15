@@ -3,8 +3,7 @@ const float PI = 3.141592653589;
 const float e = 2.7182818284590;
 const float wmRange = 20037508.0;
 
-#pragma glslify: transform = require(./utils/transform)
-
+#include "./utils/transform.glslx"
 
 uniform highp sampler2D u_particles;
 uniform highp sampler2D u_tex_0;
@@ -34,12 +33,12 @@ uniform float u_rand_seed;
 // // pseudo-random generator
 const vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);
 float rand(const vec2 co) {
-    float t = dot(rand_constants.xy, co);
-    return fract(sin(t) * (rand_constants.z + t));
+  float t = dot(rand_constants.xy, co);
+  return fract(sin(t) * (rand_constants.z + t));
 }
 
 float cosh(float area) {
-    return 0.5 * (pow(e, area) + pow(e, -area));    
+  return 0.5 * (pow(e, area) + pow(e, -area));
 }
 
 // ------------------------------------------------------------------------------------
@@ -57,14 +56,12 @@ export void updateVertex() {
   gl_Position = vec4(2.0 * v_tex_pos - 1.0, 0, 1);
 }
 
-
 const float scale = float(0xFFFF);
 
 // ------------------------------------------------------------------------------------
 // Fragment, Update particle positions
 
 export void updateFragment() {
-
   // Read particles positions from data texture
   vec4 pos_data = texture2D(u_particles, v_tex_pos);
   vec2 low = pos_data.xy;
@@ -78,13 +75,13 @@ export void updateFragment() {
   // get uv x/y/t interpolated wind speed for its position
   vec4 c1 = texture2D(u_tex_0, tex_pos);
   vec4 c2 = texture2D(u_tex_1, tex_pos);
-  vec2 uv = mix(c1.xy, c2.xy, u_tex_a); 
+  vec2 uv = mix(c1.xy, c2.xy, u_tex_a);
 
   // We could in theory already encode this correction during reprojection
   // But that complicates things for shaders that do need to true value
-  vec2 speed = vec2(uv.x , -uv.y);
-  
-  // Correction for resolution at this lat 
+  vec2 speed = vec2(uv.x, -uv.y);
+
+  // Correction for resolution at this lat
   float res = cosh((pos.y * 2.0 - 1.0) * PI) * (scale / wmRange);
   vec2 pos_offset = speed * u_time_step * res;
 
@@ -93,7 +90,6 @@ export void updateFragment() {
   low = fract(low);
 
   pos = (high + low) / scale;
- 
 
   // back to text coord
   tex_pos = transform(pos, u_offset_inverse);
@@ -109,7 +105,7 @@ export void updateFragment() {
   float drop_rate = (u_drop_rate + speed_t * u_drop_rate_bump) * abs(u_time_step) + oob;
   float drop = step(1.0 - drop_rate, rand(seed));
   // ---------------------------------------------------------------------------------
- 
+
   vec2 random_pos = transform(random_pos_tex, u_offset) * scale;
   vec4 random_pos_data = vec4(fract(random_pos), floor(random_pos));
 
@@ -118,5 +114,5 @@ export void updateFragment() {
   // update particle position
   gl_FragColor = mix(vec4(low, high), random_pos_data, drop);
 
-   //gl_FragColor = vec4(mix(pos, transform(random_pos, u_offset), drop), 0.0, 1.0);
+  //gl_FragColor = vec4(mix(pos, transform(random_pos, u_offset), drop), 0.0, 1.0);
 }

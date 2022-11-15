@@ -1,6 +1,6 @@
 import { mat4 } from "gl-matrix";
 import { LayerOptions, PropertySpecs } from "./baseLayer";
-import { fillLayer } from "../shaders/fillLayer.glsl";
+import { fillLayer } from "../shaders/fillLayer.glslx";
 import { buildColorRampData, createColorRampTexture } from "../util/colorRamp";
 import { UVTSource } from "../data/UVTSource";
 import * as util from "../util";

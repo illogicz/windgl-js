@@ -1,5 +1,5 @@
 import { updateHeatmap, UpdateHeatmapProgram, updateHeatmapVertex, updateHeatmapFragment } from "../shaders/updateHeatmap.glslx";
-import { apply } from "../shaders/applyHeatmapData.glsl";
+import { apply } from "../shaders/applyHeatmapData.glslx";
 import * as util from "../util";
 import { UVTSource } from "../data/UVTSource";
 import { mat4, vec3 } from "gl-matrix";

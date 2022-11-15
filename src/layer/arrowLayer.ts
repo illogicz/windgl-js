@@ -2,8 +2,8 @@ import { mat4 } from "gl-matrix";
 import { LayerOptions, PropertySpecs } from "./baseLayer";
 import * as util from "../util";
 import { TimeLayer } from "./timeLayer";
-import { arrow, ArrowProgram } from "../shaders/arrow.glsl";
-//
+import { arrow, ArrowProgram } from "../shaders/arrowLayer.glslx";
+// 
 import type * as mb from "maplibre-gl";
 import { UVTSource } from "../data/UVTSource";
 import { buildColorRampData, createColorRampTexture } from "../util/colorRamp";

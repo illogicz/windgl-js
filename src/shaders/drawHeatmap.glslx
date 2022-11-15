@@ -1,5 +1,6 @@
 precision highp float;
-#pragma glslify: transform = require(./utils/transform)
+
+#include "./utils/transform.glslx"
 
 uniform mat4 u_transform;
 uniform float u_output_mult;
@@ -23,4 +24,3 @@ export void drawFragment() {
   float a = mix(a_avg, a_max, u_output_alpha);
   gl_FragColor = vec4(rgb, a);
 }
- 

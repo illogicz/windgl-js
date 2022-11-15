@@ -1,5 +1,5 @@
 import { LayerOptions } from "./baseLayer";
-import { draw, DrawProgram } from "../shaders/drawHeatmap.glsl";
+import { draw, DrawProgram } from "../shaders/drawHeatmap.glslx";
 import * as util from "../util";
 import { TimeLayer } from "./timeLayer";
 import { UVTSource } from "../data/UVTSource";

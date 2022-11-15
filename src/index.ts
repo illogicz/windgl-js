@@ -6,4 +6,6 @@ export * from "./layer/baseLayer";
 export * from "./layer/fillLayer";
 export * from "./layer/particleLayer";
 export * from "./layer/heatmapLayer";
-export * from "./layer/arrowLayer"; 
+export * from "./layer/arrowLayer";
+export * from "./sim/heatmap";
+export * from "./sim/particles"; 

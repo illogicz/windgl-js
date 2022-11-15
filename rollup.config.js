@@ -7,7 +7,6 @@ import fs from 'fs'
 
 //import fg from 'fast-glob';
 
-import glslify from 'glslify'
 import * as GLSLX from 'glslx'
 import { dirname } from 'path'
 import { createFilter } from 'rollup-pluginutils'
@@ -39,15 +38,15 @@ function makeGLSL(userOptions = {}) {
 
       options.basedir = options.basedir || dirname(id)
 
-      const codeWithDeps = glslify(code, options).replace('#define GLSLIFY 1\n', '')
+      //const codeWithDeps = glslify(code, options).replace('#define GLSLIFY 1\n', '')
 
-      const compiled = GLSLX.compile(codeWithDeps, {
+      const compiled = GLSLX.compile(code, {
         disableRewriting: true,
         format: 'json',
         keepSymbols: false,
         prettyPrint: true,
         renaming: 'internal-only',
-        fileAccess: p => fs.readFileSync(path.join(options.basedir, p)).toString()
+        fileAccess: p => fs.readFileSync(path.join(dirname(id), p)).toString()
       })
 
       if (compiled.log) {

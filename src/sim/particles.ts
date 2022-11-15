@@ -1,5 +1,5 @@
 import * as util from "../util";
-import { update, UpdateProgram } from "../shaders/updateParticles.glsl";
+import { update, UpdateProgram } from "../shaders/updateParticles.glslx";
 import { UVTSource } from "../data/UVTSource";
 import { DEF_INPUT_TEX_UNIT, Simulation } from "./simulation";
 

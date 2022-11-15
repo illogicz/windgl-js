@@ -1,5 +1,5 @@
 import { mat4, vec2, mat2, ReadonlyVec2, ReadonlyMat4 } from "gl-matrix";
-import { reproject } from "../shaders/data/reproject.glsl";
+import { reproject } from "../shaders/data/reproject.glslx";
 import * as util from "../util";
 
 /**
