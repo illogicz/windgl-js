@@ -117,7 +117,7 @@ export function bindFramebuffer(gl: WebGLRenderingContext, framebuffer: WebGLFra
 export const getExtension = (gl: WebGLRenderingContext) => ((extension: string) => {
   const ext = gl.getExtension(extension);
   if (ext) return ext;
-  const error = new Error(`${extension} not supported by your browser/hardware\n a requirement for now, apologies.`);
+  const error = new Error(`${extension} either not supported by your browser/hardware or something failed\n a requirement for now, apologies.`);
   alert(error.message);
   throw error;
 }) as WebGLRenderingContext["getExtension"];
@@ -145,7 +145,7 @@ export function fract(n: number) {
 
 
 
-export function toMercator([lon, lat]: [number, number]): [number, number] {
+export function toMercator([lon, lat]: number[]): [number, number] {
   return [
     lon * EPSG3857_DEG,
     Math.log(Math.tan(DEGtoTAU * (lat + 90))) * EPSG3857_R

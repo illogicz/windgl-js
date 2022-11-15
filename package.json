@@ -9,13 +9,8 @@
     "./dist"
   ],
   "scripts": {
-    "prepublishOnly": "npm run build",
     "build": "rollup -c",
-    "watch": "rollup -c -w",
-    "data": "python data/gfswind2png.py --timestamp 2022092800 --output_dir /enose/vis/public/static/wind/wind",
-    "test": "if test \"$CI\" = 'true' || test \"$TRAVIS\" = 'true'; then \n  eslint src && jest \nelse jest --watch \nfi",
-    "serve": "st -nc -i index.html",
-    "start": "run-p  serve watch"
+    "watch": "rollup -c -w"
   },
   "keywords": [
     "mapboxgl",
@@ -44,7 +39,7 @@
     "gl-shader-output": "^2.0.1",
     "glsl-minifier": "0.0.13",
     "glslify": "^7.0.0",
-    "glslx": "^0.1.26",
+    "glslx": "^0.3.0",
     "jest": "^24.3.1",
     "jest-image-snapshot": "^2.8.1",
     "maplibre-gl": "^2.4.0",

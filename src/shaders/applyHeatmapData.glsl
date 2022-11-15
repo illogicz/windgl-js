@@ -6,7 +6,8 @@ precision highp float;
 uniform mat4 u_matrix;
 
 // display
-uniform float u_size;
+uniform float u_diameter;
+uniform float u_fade;
 
 // particle index
 attribute vec2 a_positions; 
@@ -17,10 +18,13 @@ varying vec4 v_data;
 export void applyVertex() {
   v_data = a_data;
   vec2 pos = transform(a_positions, u_matrix);
-  gl_PointSize = v_data.a >= 0.0 ? 5.0 : 0.0;
-  gl_Position = v_data.a >= 0.0 ? vec4(2.0 * pos - 1.0, 0, 1.0) : vec4(0.0, 0.0, 0.0, 0.0);
+  gl_PointSize = u_diameter;
+  gl_Position = vec4(2.0 * pos - 1.0, 0, 1.0);
 }
 
-export void applyFragment() {
-    gl_FragColor = v_data;
-} 
+export void applyFragment() { 
+    float d = length(gl_PointCoord * 2.0 - 1.0);
+    float f = 1.0 - smoothstep(u_fade, 1.0, d);
+    gl_FragColor = vec4(v_data.rgb, 1.0) * f;
+}
+ 

@@ -11,5 +11,3 @@ vec2 sampleUV(const vec2 tex_uv) {
   ); 
   return vec2(uv.x , -uv.y);
 }
-
-#pragma glslify: export(sampleUV)

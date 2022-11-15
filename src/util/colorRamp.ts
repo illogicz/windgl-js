@@ -33,7 +33,6 @@ export function buildColorRampData(
   const size = isSize ? sizeOrData : sizeOrData.length / 4;
   const data = isSize ? new Uint8Array(sizeOrData * 4) : sizeOrData;
 
-  console.log({ sizeOrData, size, data })
   // let _range = [0, 1];
   // if (expr.kind === "source" || expr.kind === "composite") {
   //   _range = range;

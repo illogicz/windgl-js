@@ -1,0 +1,58 @@
+precision highp float;
+
+#include "./data/sampleUV2.glsl"
+#include "./utils/transform2.glsl"
+
+uniform mat4 u_hm_to_uv;
+uniform vec2 u_resolution_met; // texel / meter
+uniform float u_time_step;
+uniform float u_drop_off;
+
+varying vec2 v_tex_pos;
+attribute vec2 a_pos;
+
+export void updateHeatmapVertex() {
+  v_tex_pos = a_pos;
+  gl_Position = vec4(2.0 * v_tex_pos - 1.0, 0, 1);
+}
+
+// ------------------------------------------------------------------------------------
+// Fragment, Update particle positions
+
+// const float MAX_BLUR = 3.0;
+// const float BLUR_DIM = MAX_BLUR * 2.0 + 1.0;
+// const float BLUR_SIZE = BLUR_DIM * BLUR_DIM;
+
+uniform vec2 u_resolution_tex;
+uniform sampler2D u_heatmap;
+// uniform float u_blur_kernel[49];
+// vec4 dispersion(vec2 sample_pos) {
+//   vec4 sum = vec4(0.0);
+//   for (float i = 0.0; i < BLUR_SIZE; i++) {
+//     float x = mod(i, BLUR_DIM) - MAX_BLUR;
+//     float y = floor(i / BLUR_DIM) - MAX_BLUR;
+//     vec2 tex_pos = sample_pos + vec2(x, y) * u_resolution_tex;
+//     vec4 tex_val = texture2D(u_heatmap, tex_pos);
+//     float blur = u_blur_kernel[int(i)];
+//     sum += tex_val * blur;
+//   }
+//   return sum;
+// }
+
+//import float u_blur_kernel[1];
+import vec4 dispersion(vec2 sample_pos, vec2 tex_res) {
+  return texture2D(u_heatmap, sample_pos);
+}
+
+export void updateHeatmapFragment() {
+  vec2 uv_pos = transform(v_tex_pos, u_hm_to_uv);
+  vec2 uv = sampleUV(uv_pos);
+  vec2 tex_dist = u_time_step * uv * u_resolution_met;
+  vec2 sample_pos = v_tex_pos - tex_dist;
+
+  vec4 value = dispersion(sample_pos, u_resolution_tex);
+
+  vec2 inside = step(sample_pos, vec2(0.99999)) * step(vec2(0.00001), sample_pos);
+  float f = inside.x * inside.y;
+  gl_FragColor = vec4(value.rgb * f * u_drop_off, 0.0);
+}
